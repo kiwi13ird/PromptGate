@@ -1,0 +1,7 @@
+python-docx==1.2.0
+pypdf==6.12.2
+openpyxl==3.1.5
+# PyMuPDF는 AGPL-3.0(또는 Artifex 상용 라이선스) - 실험/데모 환경 전용.
+# 상용 배포 전 pdfplumber(MIT)로 되돌리거나 Artifex 상용 라이선스를 구매할 것.
+PyMuPDF==1.27.2.3
+pytest==9.0.3
