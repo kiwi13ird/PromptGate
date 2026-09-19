@@ -1,0 +1,39 @@
+{
+  "sections": [
+    {
+      "heading": "5-7. Search/Indexing Service",
+      "paragraphs": [
+        "Search/Indexing Service는 워크스페이스 내 흩어진 콘텐츠(문서, 태스크/카드, 채팅 메시지)를 하나의 검색 경험으로 통합 제공하는 전담 컴포넌트다. 핵심 책임은 (1) 워크스페이스 범위의 전문(全文) 검색 API 제공, (2) 문서·태스크·채팅 3종 콘텐츠의 통합 인덱싱 스키마 관리, (3) 원본 서비스에서 발생하는 Kafka 이벤트를 구독하여 인덱스를 실시간 갱신, (4) 질의어 관련도·최신성·콘텐츠 유형을 반영한 검색 결과 랭킹, (5) 사용자의 워크스페이스/보드 접근 권한을 검색 질의 시점에 반영하는 권한 필터링이다. 백엔드팀 소유로 Kotlin/Spring Boot 기반 독립 배포 서비스로 운영되며, 자체 원본 데이터(source of truth)는 갖지 않고 Document Collaboration Service·Workspace/Project Service·Realtime Collaboration(Chat) Service가 발행하는 이벤트를 구독해 파생된 읽기 전용 인덱스만 관리한다.",
+        "인덱싱 대상은 문서 본문(리치 텍스트), 태스크 제목·설명·댓글, 채팅 메시지 3종이며, 각각 원본 서비스가 발행하는 도메인 이벤트를 Kafka 컨슈머가 구독해 OpenSearch 인덱스에 반영하는 CDC(Change Data Capture) 유사 구조로 동작한다. 다만 문서는 CRDT 기반 실시간 공동편집 특성상 키 입력마다 이벤트가 발생하므로 매 변경을 즉시 색인하면 인덱싱 큐가 폭주한다. 이를 방지하기 위해 문서 인덱싱 컨슈머는 document_id 단위로 5초 디바운스 윈도우를 두어 편집이 소강 상태에 들어간 시점의 스냅샷만 색인하며, 태스크·채팅은 이벤트 발생 즉시(수백 ms 이내) 색인해 실시간성을 우선한다. 각 컨텐츠 유형은 독립된 컨슈머 그룹과 OpenSearch 인덱스로 분리되어 있어 한 유형의 인덱싱 지연이 다른 유형의 검색 가용성에 영향을 주지 않으며, 통합검색 API는 내부적으로 3개 인덱스에 대한 멀티 인덱스 질의(Multi-Index Search)를 수행한 뒤 결과를 병합한다.",
+        "검색 결과 랭킹은 OpenSearch 기본 BM25 스코어에 커스텀 function_score를 결합해 산출한다. 최신성(updated_at 기준 시간 감쇠), 콘텐츠 유형 가중치(제목 매치가 본문 매치보다 높은 부스트), 질의자의 최근 접근 이력(자신이 최근 열람·수정한 보드/문서에 가점) 3가지 신호를 반영하며, 향후 클릭 로그가 충분히 쌓이면 Learning-to-Rank 도입을 로드맵으로 검토 중이다. 권한 필터링은 검색 후 결과를 걸러내는 사후 필터(post-filter) 방식이 아니라, 색인 문서 자체에 workspace_id·board_id·acl_role_ids를 필드로 함께 저장해 두고 질의 시점에 bool filter 절로 사전 필터링하는 방식을 채택했다. 이는 사후 필터링 시 발생할 수 있는 페이지네이션 왜곡(권한 없는 문서가 상위 랭크를 차지해 실제 노출 결과 수가 줄어드는 문제)과 최악의 경우 필터링 누락으로 인한 정보 노출 위험을 원천적으로 차단하기 위함이다. 사용자의 org_id·워크스페이스별 역할은 Auth Service가 발급한 JWT 클레임에서 추출하여 매 질의에 filter 절로 주입한다.",
+        "의존 서비스: Document Collaboration Service — document-content-updated 토픽(디바운스된 문서 본문 스냅샷)을 구독해 documents_index를 갱신한다. Workspace/Project Service — board-events 토픽(태스크 생성/수정, 댓글 등록, 멘션)을 구독해 tasks_index를 갱신하고, workspace-membership-events 토픽을 구독해 ACL 필드(acl_role_ids) 재계산에 사용한다. Realtime Collaboration(Chat) Service — chat-events 토픽(채팅 메시지 발행/수정/삭제)을 구독해 chat_messages_index를 갱신한다. Auth Service — API Gateway를 경유해 검증된 JWT의 org_id·workspace role 클레임을 권한 필터 조건으로 사용하며, 본 서비스는 별도 인증 로직을 두지 않는다. Notification Service — 대규모 재색인(reindex) 작업 완료/실패 시 온콜 담당자에게 알림을 전달하기 위해 search-index-events 토픽을 발행한다(소비가 아닌 발행 방향).",
+        "기술스택 및 선정 이유: 검색 엔진은 OpenSearch(AWS 관리형, 회사 표준 EKS/AWS 인프라와 동일 VPC)를 채택했다. Elasticsearch는 라이선스 정책 변경(SSPL 전환) 이후 AWS 관리형 서비스에서 최신 버전을 사용할 수 없다는 제약이 있어, 오픈소스 라이선스(Apache 2.0)를 유지하며 Elasticsearch API 호환성이 높은 OpenSearch를 선정했고, 이는 향후 벤더 종속을 최소화하는 ADR 방향과도 일치한다. 인덱싱 컨슈머와 검색 API는 Kotlin/Spring Boot 3 + Spring Kafka로 구현해 백엔드팀 공통 스택을 재사용했다. 인기 검색어·최근 검색어 캐싱 및 자동완성 후보 사전 계산에는 기존 Redis Cluster를 재사용해 별도 캐시 인프라를 신설하지 않았다. 인덱싱 컨슈머 오프셋, 재색인 작업 이력 등 운영 메타데이터는 검색 결과 자체와 분리해 PostgreSQL의 경량 테이블(index_sync_jobs)에 기록하며, 이를 통해 OpenSearch 클러스터 장애/재구축 시에도 어느 시점부터 재색인을 재개해야 하는지 추적할 수 있다. 대규모 워크스페이스 전체 재색인은 응답 지연이 크므로 관리자 API 호출 시 즉시 처리하지 않고 Kafka(search-reindex-requested)로 비동기 큐잉해 백그라운드 배치로 처리한다."
+      ],
+      "table": {
+        "headers": ["Method", "Path", "설명"],
+        "rows": [
+          ["GET", "/api/v1/search", "워크스페이스 통합검색 (문서·태스크·채팅 멀티 인덱스 질의, type/기간 필터, 페이지네이션)"],
+          ["GET", "/api/v1/search/documents", "문서 전용 전문 검색 (제목·본문 매치, 보드/작성자 필터)"],
+          ["GET", "/api/v1/search/tasks", "태스크(카드) 전용 검색 (제목·설명·댓글 매치, 담당자/상태/우선순위 필터)"],
+          ["GET", "/api/v1/search/messages", "채팅 메시지 전용 검색 (채널/발신자/기간 필터)"],
+          ["GET", "/api/v1/search/suggest", "입력 중 자동완성 후보 조회 (edge n-gram 기반, 최근/인기 검색어 반영)"],
+          ["POST", "/api/v1/admin/search/reindex", "워크스페이스 단위 전체 재색인 요청 (비동기 배치, 운영자 전용)"],
+          ["GET", "/api/v1/admin/search/index-status", "인덱스별 동기화 지연(consumer lag)·최근 재색인 이력 조회 (운영자 전용)"]
+        ]
+      }
+    },
+    {
+      "heading": "5-7a. Search/Indexing Service - 인덱스 스키마",
+      "paragraphs": [],
+      "table": {
+        "headers": ["인덱스명", "필드구성", "설명"],
+        "rows": [
+          ["documents_index", "document_id, board_id, workspace_id, title, content_text, tags, updated_at, acl_role_ids", "문서 본문 전문 검색용 인덱스. Document Collaboration Service의 CRDT 스냅샷을 5초 디바운스 후 색인하며 content_text는 한국어 형태소 분석기(nori) 적용"],
+          ["tasks_index", "task_id, board_id, workspace_id, title, description, comments_text, assignee_id, status, priority, due_date, updated_at, acl_role_ids", "태스크(카드) 제목·설명·댓글 통합 검색용 인덱스. board-events 토픽 수신 즉시(수백 ms 이내) 갱신"],
+          ["chat_messages_index", "message_id, channel_id, workspace_id, sender_id, message_text, mentions, created_at, acl_role_ids", "채팅 메시지 검색용 인덱스. TTL 정책에 따라 워크스페이스 보관주기 경과 메시지는 주기 배치로 삭제"],
+          ["search_suggestions_index", "term, source_type, workspace_id, popularity_score, last_used_at", "자동완성/추천 검색어 인덱스. edge n-gram analyzer로 접두어 매칭을 지원하고 popularity_score로 랭킹 부스팅"]
+        ]
+      }
+    }
+  ]
+}

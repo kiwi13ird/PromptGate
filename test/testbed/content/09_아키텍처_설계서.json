@@ -1,0 +1,1159 @@
+{
+  "doc_id": "09_아키텍처_설계서",
+  "format": "docx",
+  "title": "네오보드 3.0 시스템 아키텍처 설계서",
+  "header_text": "대외비 - 개발본부",
+  "doc_meta": {
+    "doc_no": "NW-DEV-2026-031",
+    "date": "2026-08-10",
+    "author": "CTO 강민석",
+    "distribution": "개발본부 한정"
+  },
+  "approval_line": [
+    {
+      "role": "작성",
+      "name": "강민석"
+    },
+    {
+      "role": "검토",
+      "name": "플랫폼팀장"
+    },
+    {
+      "role": "승인",
+      "name": "강민석"
+    }
+  ],
+  "sections": [
+    {
+      "heading": "1. 소개 및 목표",
+      "paragraphs": [
+        "본 문서는 ㈜네오웍스(NeoWorks)가 개발본부(R&D, 20명) 주도로 진행 중인 PRJ-2026-03 '네오보드(NeoBoard) 3.0 리뉴얼' 프로젝트의 시스템 아키텍처를 arc42 템플릿에 따라 기술한 설계서이다. 네오보드는 국내외 B2B 고객을 대상으로 워크스페이스 기반 협업, 실시간 문서 공동편집, AI 기반 회의록 요약, 화상회의 연동을 제공하는 SaaS 제품으로, 2.x 버전까지 유지되어 온 모놀리식 백엔드 구조를 8개의 도메인 중심 마이크로서비스로 전면 재구성하는 것이 3.0의 핵심 목표이다. CTO 강민석 주관 하에 플랫폼팀, 백엔드팀, 프론트팀, AI팀이 공동으로 참여하며, 본 문서는 각 팀이 개별 서비스를 상세 설계하기 전에 합의해야 할 전체 골격(품질목표, 제약사항, 컨텍스트, 솔루션 전략, 런타임/배포/횡단 관심사, 아키텍처 결정)을 규정한다.",
+        "핵심 기능 요구사항은 다음과 같다: (1) 이메일/SSO 기반 로그인 및 세분화된 권한관리, (2) 워크스페이스-프로젝트-보드-태스크 계층 구조의 협업 관리, (3) CRDT 기반 다중 사용자 실시간 문서 공동편집과 버전 히스토리, (4) 이메일/푸시/인앱 채널을 아우르는 알림 발송 및 구독관리, (5) 회의록·문서에 대한 LLM 기반 자동 요약(PRJ-2026-05 연계), (6) 요금제·결제·인보이스 관리, (7) 전사 콘텐츠에 대한 전문검색, (8) 외부 화상회의 서비스와의 연동. 비기능 요구사항으로는 급격한 트래픽 증가에 대응하는 수평적 확장성, 실시간 협업에 필요한 낮은 지연시간, 결제·인증 데이터에 대한 높은 보안수준, 그리고 20명 규모의 소수 조직이 운영 가능한 수준의 운영 복잡도가 핵심적으로 요구된다.",
+        "이해관계자는 다음과 같이 구성된다. 경영진(대표이사, CTO 강민석)은 사업 확장성과 투자 대비 효율을 중시하며, 개발본부 4개 팀(플랫폼팀·백엔드팀·프론트팀·AI팀)은 서비스 소유권과 독립 배포 가능성을 중시한다. B2B 고객사의 IT 담당자는 데이터 보안, SLA, 감사 로그를 요구하며, 외부 협력사로는 결제대행(PG)사, 이메일 발송 대행사(SendGrid 등), 화상회의 API 제공사, LLM API 제공사(OpenAI 등)가 있다. 각 이해관계자의 관심사는 품질목표 우선순위 표에 반영되어 아키텍처 트레이드오프 판단 기준으로 활용된다.",
+        "본 절 이하 2~12절은 8개 마이크로서비스를 감싸는 공통 골격을 규정하며, 각 서비스의 내부 컴포넌트, API, 데이터 모델 등 상세 설계는 5-1~5-8절(개별 문서)에서 별도로 다룬다."
+      ],
+      "table": {
+        "headers": [
+          "순위",
+          "품질목표",
+          "설명 및 측정 기준"
+        ],
+        "rows": [
+          [
+            "1",
+            "가용성 (Availability)",
+            "핵심 서비스(Auth, Workspace, Document) 월간 가동률 99.9% 이상, 연간 다운타임 8.76시간 이내 목표"
+          ],
+          [
+            "2",
+            "성능 효율성 (Performance)",
+            "API 응답 P95 300ms 이하, 문서 공동편집 변경사항 전파 지연 200ms 이하"
+          ],
+          [
+            "3",
+            "보안성 (Security)",
+            "OAuth2/JWT 기반 인증, 전송구간 TLS 1.2+ 암호화, 결제정보 PCI-DSS 준수, 개인정보 저장시 암호화"
+          ],
+          [
+            "4",
+            "확장성 (Scalability)",
+            "서비스별 독립 오토스케일링, 특정 서비스(예: Document, AI Summary) 트래픽 급증 시 타 서비스 영향 최소화"
+          ],
+          [
+            "5",
+            "유지보수성 (Maintainability)",
+            "서비스별 독립 배포, 20명 조직 기준 팀당 최대 2~3개 서비스 소유, 신규 인력 온보딩 2주 이내 목표"
+          ],
+          [
+            "6",
+            "상호운용성 (Interoperability)",
+            "외부 PG사·이메일사·화상회의사·LLM API와의 연동 시 어댑터 계층을 통한 벤더 교체 용이성 확보"
+          ],
+          [
+            "7",
+            "사용성 (Usability)",
+            "실시간 협업 편집 시 사용자 체감 지연 없는(200ms 이내) 커서/변경사항 동기화"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "2. 제약사항",
+      "paragraphs": [
+        "조직적 제약: 개발본부 인력은 총 20명(플랫폼팀, 백엔드팀, 프론트팀, AI팀)으로 구성된 소규모 조직이며, 8개 마이크로서비스를 이 인력으로 감당해야 한다. 이에 따라 팀당 다수의 서비스를 겸임 소유하는 구조가 불가피하며, 서비스 템플릿 표준화와 자동화된 운영 도구(CI/CD, 관측성 스택)를 통해 운영 부담을 최소화하는 것이 필수 전제조건이다. 또한 신규 서비스 도입 시 반드시 CTO 및 팀 리드 합의를 거치는 아키텍처 거버넌스 프로세스를 따른다.",
+        "조직적 제약(계속): PRJ-2026-03(네오보드 3.0)과 PRJ-2026-05(AI 요약 고도화)가 동시에 진행되는 관계로 AI Summary Service는 별도 프로젝트 일정에 종속되며, 3.0 정식 출시 이전 베타 형태로 우선 통합될 수 있다. 릴리스 일정은 분기별 마이너 배포, 반기별 메이저 배포를 원칙으로 한다.",
+        "기술적 제약: 프론트엔드는 React, 백엔드는 Kotlin/Spring Boot로 기술스택을 통일하여 팀 간 인력 이동과 코드 재사용성을 확보한다. 주 데이터저장소는 PostgreSQL, 캐시는 Redis, 비동기 메시징은 Kafka, 컨테이너 오케스트레이션은 Kubernetes(EKS)로 표준화하며, 신규 마이크로서비스라 하더라도 이 표준 스택에서 벗어나는 기술 도입은 원칙적으로 제한하고 예외 시 ADR을 통해 승인받아야 한다.",
+        "기술적 제약(계속): 클라우드 인프라는 AWS를 기본으로 하며 현재 서울 리전(ap-northeast-2)에서 운영하되, 향후 일본 시장 진출을 대비해 도쿄 리전(ap-northeast-1) 확장을 계획하고 있다. 외부 연동(PG사, 이메일 발송사, 화상회의 API, LLM API)은 각 서비스 소유팀이 아닌 별도의 통합 어댑터 계층을 통해 이루어져야 하며, 특정 벤더에 대한 강한 결합을 지양한다.",
+        "법적/규제 제약: 국내 개인정보보호법 및 정보통신망법을 준수해야 하며, B2B 고객사의 데이터 보관 위치(국내 리전 우선)에 대한 계약상 요구사항이 존재할 수 있다. 결제 관련 데이터는 PCI-DSS 가이드라인을 따르며, 카드정보 등 민감정보는 자체 저장하지 않고 PG사 위탁 저장 방식을 채택한다."
+      ]
+    },
+    {
+      "heading": "3. 컨텍스트 및 범위",
+      "paragraphs": [
+        "비즈니스 컨텍스트: 네오보드는 B2B 고객사의 임직원(최종 사용자), 고객사 IT 관리자(워크스페이스 관리자), 그리고 네오웍스 내부 운영/CS 인력이 상호작용하는 협업 플랫폼이다. 최종 사용자는 웹 브라우저 또는 향후 모바일 앱을 통해 워크스페이스에 접속하여 프로젝트 관리, 문서 공동편집, 화상회의, AI 요약 기능을 이용하며, 워크스페이스 관리자는 결제/요금제 관리와 팀원 권한 설정을 담당한다. 시스템은 이들 사용자와 외부 서비스(PG사, 이메일 발송사, 화상회의 API, LLM API 제공사) 사이의 경계에 위치한다.",
+        "기술 컨텍스트: 클라이언트(React SPA, 향후 모바일 앱)는 API Gateway를 단일 진입점으로 하여 8개 마이크로서비스와 통신한다. API Gateway는 인증 토큰 검증, 라우팅, Rate Limiting을 담당하며 내부적으로 각 서비스는 Kafka를 통한 비동기 이벤트 기반 통신과 REST/gRPC를 통한 동기 통신을 혼용한다. 외부 시스템으로는 (1) 결제대행(PG)사 API — Billing/Subscription Service가 연동, (2) 이메일 발송 대행 서비스(SendGrid 등 SMTP/API 기반) — Notification Service가 연동, (3) 화상회의 API(Zoom/Google Meet 등 외부 제공사) — Video Conferencing Integration Service가 게이트웨이 역할로 연동, (4) LLM API(OpenAI 등 외부 모델 및 사내 자체 파인튜닝 모델) — AI Summary Service가 연동한다.",
+        "기술 컨텍스트(계속): 모든 외부 연동은 서킷브레이커와 재시도 정책을 갖춘 어댑터를 통해 이루어지며, 외부 시스템 장애가 핵심 서비스(Auth, Workspace, Document)의 가용성에 영향을 주지 않도록 격리(Bulkhead 패턴)한다. 예를 들어 LLM API 장애 시 AI Summary Service만 일시적으로 저하되며 문서 편집이나 로그인 등 핵심 기능은 정상 동작해야 한다.",
+        "범위: 본 아키텍처 설계서는 네오보드 3.0의 백엔드 마이크로서비스 8종과 이를 감싸는 API Gateway, 공통 인프라(K8s, Kafka, PostgreSQL, Redis)를 범위로 하며, 프론트엔드 React 애플리케이션의 내부 컴포넌트 설계, 모바일 앱 설계, 그리고 외부 PG사/이메일사/화상회의사/LLM사의 내부 구현은 범위에서 제외한다."
+      ]
+    },
+    {
+      "heading": "4. 솔루션 전략",
+      "paragraphs": [
+        "마이크로서비스 아키텍처 채택: 네오보드 2.x의 모놀리식 구조는 배포 시 전체 시스템 재배포가 필요했고, 특정 기능(문서 공동편집)의 트래픽 급증이 전체 서비스 성능에 영향을 주는 구조적 한계가 있었다. 3.0에서는 도메인 주도 설계(DDD)에 기반해 8개의 경계 컨텍스트(Bounded Context)로 분리하여, 팀별 독립 개발·배포·확장이 가능하도록 한다. 다만 20명 소규모 조직임을 감안하여 과도한 세분화는 지양하고, 8개라는 서비스 수를 운영 가능한 상한선으로 설정하였다.",
+        "핵심 기술 결정 요약: 백엔드 언어/프레임워크는 팀의 기존 역량과 생산성을 고려해 Kotlin/Spring Boot로 통일하고, 데이터 일관성이 중요한 도메인(인증, 결제, 워크스페이스)에는 PostgreSQL을 서비스별로 독립 스키마로 운용하는 Database-per-Service 패턴을 적용한다. 서비스 간 비동기 통신 및 이벤트 기반 아키텍처(Event-Driven Architecture)를 위해 Kafka를 도입하여 서비스 간 결합도를 낮추고, 실시간 문서 공동편집은 OT(Operational Transformation) 대신 CRDT(Conflict-free Replicated Data Type)를 채택하여 서버 중재 없이도 오프라인 편집 병합이 가능하도록 한다.",
+        "인프라 전략: 컨테이너 오케스트레이션은 Kubernetes(EKS)를 채택하여 서비스별 독립 오토스케일링과 롤링/카나리 배포를 지원하고, API Gateway 패턴을 도입하여 인증·라우팅·Rate Limiting 등 횡단 관심사를 개별 서비스 로직에서 분리한다. 초기에는 서울 리전 단일 운영으로 시작하되, 향후 일본 시장 진출 시 도쿄 리전으로의 확장을 염두에 두고 리전 독립적인 설계(리전별 데이터 파티셔닝 가능 구조)를 지향한다.",
+        "AI/외부연동 전략: AI Summary Service는 외부 LLM API(OpenAI 등)를 우선 활용하되 비용 및 데이터 민감도에 따라 자체 파인튜닝 모델로 전환 가능한 추상화 계층을 두며, 화상회의 연동은 자체 화상회의 엔진을 구축하지 않고 외부 API를 게이트웨이 형태로 연동하여 초기 개발 비용을 최소화하는 전략을 취한다. 결제는 자체 PG를 구축하지 않고 국내 PG사와의 연동을 통해 규제 준수 부담을 PG사와 분담한다.",
+        "조직-아키텍처 정합 전략: Conway's Law를 고려하여 서비스 경계와 팀 구조를 최대한 일치시키되(예: AI 관련 서비스는 AI팀, 인증/결제 등 플랫폼성 서비스는 플랫폼팀), 20명 조직의 한계를 극복하기 위해 서비스 템플릿(공통 로깅/에러처리/헬스체크 라이브러리)을 표준화하여 신규 서비스 추가 비용을 낮춘다.",
+        "품질 확보 전략: 성능과 가용성이 최우선 품질목표임을 반영하여, 캐싱(Redis)을 통한 읽기 성능 최적화, 서킷브레이커·재시도·타임아웃을 표준 적용한 장애 격리, 그리고 핵심 서비스(Auth, Workspace, Document)에 대한 다중 AZ 이중화를 아키텍처 전반에 일관되게 적용한다."
+      ]
+    },
+    {
+      "heading": "5. 빌딩 블록 뷰 - 개요",
+      "paragraphs": [
+        "네오보드 3.0의 전체 시스템은 최상위 레벨에서 클라이언트(React SPA/모바일), API Gateway, 8개 마이크로서비스, 공통 인프라(PostgreSQL, Redis, Kafka)로 구성된다. 클라이언트는 API Gateway를 단일 진입점으로 모든 요청을 전송하며, Gateway는 인증 토큰 검증 후 요청을 각 서비스로 라우팅한다. 각 마이크로서비스는 자신의 도메인에 대해 독립된 PostgreSQL 스키마(또는 별도 데이터베이스)를 소유하며, 서비스 간 데이터 동기화나 이벤트 전파가 필요한 경우 Kafka 토픽을 통한 비동기 이벤트 발행/구독 방식을 사용한다. 일부 실시간성이 요구되는 상호작용(예: 로그인 시 권한 조회)은 서비스 간 동기 REST/gRPC 호출로 처리한다.",
+        "8개 마이크로서비스는 각각 명확한 단일 책임을 가지며, 서비스 간 경계는 도메인 주도 설계의 Bounded Context에 따라 구분된다. 아래 표는 전체 시스템을 구성하는 8개 서비스의 목록과 핵심 책임을 요약한 것이며, 각 서비스의 내부 컴포넌트 구조, API 명세, 데이터 모델 등 상세 설계는 본 문서의 5-1절부터 5-8절까지 개별적으로 기술한다(본 절에서는 개요만 다룬다).",
+        "서비스 간 공통 연동 원칙으로는 (1) 모든 서비스는 API Gateway를 통해서만 외부에 노출되고 서비스 간 직접 호출은 내부 네트워크(K8s Service Mesh 또는 ClusterIP)로 제한, (2) 도메인 이벤트는 Kafka를 통해 발행하고 관심 있는 서비스가 구독하는 이벤트 소싱 방식을 부분 채택, (3) 각 서비스는 독립적인 CI/CD 파이프라인과 헬스체크 엔드포인트를 표준으로 갖춘다는 점을 들 수 있다."
+      ],
+      "table": {
+        "headers": [
+          "서비스명",
+          "책임",
+          "비고"
+        ],
+        "rows": [
+          [
+            "Auth/Identity Service",
+            "로그인, SSO 연동, 토큰(JWT) 발급/검증, 사용자 권한관리",
+            "상세 설계는 5-1절 참조"
+          ],
+          [
+            "Workspace/Project Service",
+            "워크스페이스, 프로젝트, 보드/태스크 관리",
+            "상세 설계는 5-2절 참조"
+          ],
+          [
+            "Document Collaboration Service",
+            "CRDT 기반 실시간 공동편집, 문서 버전관리",
+            "상세 설계는 5-3절 참조"
+          ],
+          [
+            "Notification Service",
+            "이메일/푸시/인앱 알림 발송, 구독관리",
+            "상세 설계는 5-4절 참조"
+          ],
+          [
+            "AI Summary Service",
+            "회의록/문서 자동 요약 (PRJ-2026-05 연계)",
+            "상세 설계는 5-5절 참조"
+          ],
+          [
+            "Billing/Subscription Service",
+            "요금제, 결제, 인보이스 관리",
+            "상세 설계는 5-6절 참조"
+          ],
+          [
+            "Search/Indexing Service",
+            "전문검색, 인덱싱",
+            "상세 설계는 5-7절 참조"
+          ],
+          [
+            "Video Conferencing Integration Service",
+            "외부 화상회의 API 연동 게이트웨이",
+            "상세 설계는 5-8절 참조"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-1. Auth/Identity Service",
+      "paragraphs": [
+        "Auth/Identity Service는 네오보드(NeoBoard) 플랫폼 전반의 인증(Authentication)과 인가(Authorization)를 전담하는 마이크로서비스로, 사용자 로그인/로그아웃, 세션 및 토큰 수명주기 관리, 그리고 SSO(Single Sign-On) 연동을 담당한다. 사용자는 이메일/비밀번호 기반의 자체 계정(Local Account) 또는 구글 워크스페이스, 마이크로소프트 Entra ID(Azure AD)와 연동된 OAuth 2.0 / OIDC 기반 SSO 계정으로 로그인할 수 있으며, 인증에 성공하면 본 서비스가 JWT 액세스 토큰(만료 15분)과 리프레시 토큰(만료 14일, Redis 저장)을 발급한다. 다른 7개 마이크로서비스(워크스페이스, 보드/카드, 실시간 협업, 파일, 알림, 검색, 결제/구독)는 게이트웨이를 통과한 JWT를 자체 검증하거나, 필요 시 본 서비스가 제공하는 JWKS(JSON Web Key Set) 엔드포인트를 통해 공개키를 캐싱하여 토큰 서명을 검증한다.",
+        "두 번째 핵심 책임은 RBAC(Role-Based Access Control) 기반 권한 관리다. 네오보드는 조직(Organization) 단위로 계정을 관리하며, 조직 내 사용자는 Owner/Admin/Member/Guest 4단계 기본 역할과 워크스페이스별 커스텀 역할을 가질 수 있다. 본 서비스는 역할-권한 매핑을 관리하고, 액세스 토큰 발급 시 사용자의 조직/역할/권한 클레임(claim)을 JWT 페이로드에 포함시켜 다운스트림 서비스가 별도의 조회 없이도 인가 판단을 내릴 수 있도록 지원한다. 권한 변경이 발생하면 Kafka 이벤트(`auth.role.updated`)를 발행하여 관련 서비스의 캐시를 무효화하고, 다음 토큰 갱신 시점에 최신 권한이 반영되도록 한다.",
+        "세 번째로, 계정 보안 정책(비밀번호 정책, MFA, 이상 로그인 탐지)을 총괄한다. 비밀번호는 최소 10자 이상, 영문 대/소문자·숫자·특수문자 조합을 강제하며 bcrypt(cost factor 12)로 해싱하여 저장한다. 조직 관리자는 조직 단위로 MFA(TOTP 기반 OTP 앱, 추후 WebAuthn/FIDO2 확장 예정)를 필수화할 수 있으며, 로그인 시 IP 대역·디바이스 지문(fingerprint) 변화를 감지해 의심스러운 로그인 시 이메일 알림 및 추가 인증을 요구한다. 모든 로그인/로그아웃/토큰 갱신/권한 변경 이벤트는 감사 로그(audit log)로 별도 적재되어 규정 준수 및 보안 사고 조사에 활용된다.",
+        "본 서비스는 API Gateway(Spring Cloud Gateway) 뒤에 위치하며, 모든 인바운드 요청의 첫 관문 역할을 겸한다. Notification Service와는 Kafka를 통해 비동기로 연동되어 MFA 코드 발송, 이상 로그인 알림, 비밀번호 재설정 이메일 발송을 위임한다. Workspace/Organization Service와는 동기(REST) 호출로 연동하여 신규 가입 시 조직 프로비저닝을 트리거하고, 조직 삭제/정지 이벤트를 구독하여 해당 조직 사용자의 세션을 일괄 무효화한다. 외부 연동으로는 Google Identity Platform(OAuth 2.0/OIDC), Microsoft Identity Platform(Entra ID, OIDC)과 표준 Authorization Code Flow(PKCE 적용)로 연동하며, 발신 이메일은 AWS SES를 경유한다.",
+        "기술스택은 Kotlin/Spring Boot(Spring Security, Spring Authorization Server 커스터마이징) 기반으로 구현하여 사내 표준 스택과의 일관성 및 팀의 축적된 운영 노하우를 최대한 활용한다. 토큰 서명은 RS256(비대칭키) 방식을 채택해 개인키는 본 서비스만 보유하고 다른 서비스는 공개키(JWKS)만으로 검증하도록 하여 키 유출 범위를 최소화했다. 세션/리프레시 토큰 및 로그인 시도 횟수 제한(rate limiting)은 지연시간이 낮고 TTL 관리가 용이한 Redis(ElastiCache)에 저장하며, 사용자/역할/권한 등 정합성이 중요한 데이터는 PostgreSQL(RDS Multi-AZ)에 트랜잭션으로 관리한다. 권한 변경 등 도메인 이벤트 전파에는 Kafka를 사용해 다운스트림 서비스와 느슨하게 결합시켰고, 전체 워크로드는 EKS 위에서 HPA(Horizontal Pod Autoscaler)로 로그인 트래픽 피크(업무 시작 시간대)에 대응하도록 구성했다."
+      ],
+      "table": {
+        "headers": [
+          "Method",
+          "Path",
+          "설명",
+          "요청/응답 요약"
+        ],
+        "rows": [
+          [
+            "POST",
+            "/auth/signup",
+            "이메일/비밀번호 기반 신규 계정 생성",
+            "요청: email, password, orgName / 응답: userId, orgId, 인증 메일 발송 여부"
+          ],
+          [
+            "POST",
+            "/auth/login",
+            "로컬 계정 로그인",
+            "요청: email, password / 응답: accessToken, refreshToken, mfaRequired(bool)"
+          ],
+          [
+            "POST",
+            "/auth/logout",
+            "로그아웃 및 리프레시 토큰 폐기",
+            "요청: refreshToken(쿠키/헤더) / 응답: 204 No Content"
+          ],
+          [
+            "POST",
+            "/auth/token/refresh",
+            "액세스 토큰 재발급",
+            "요청: refreshToken / 응답: 신규 accessToken, refreshToken(로테이션)"
+          ],
+          [
+            "GET",
+            "/auth/oauth2/{provider}/authorize",
+            "구글/MS SSO 인증 시작(리다이렉트)",
+            "path: provider=google|microsoft / 응답: 302 Redirect to IdP"
+          ],
+          [
+            "GET",
+            "/auth/oauth2/{provider}/callback",
+            "SSO 콜백 처리 및 토큰 발급",
+            "쿼리: code, state / 응답: accessToken, refreshToken, 신규가입 여부"
+          ],
+          [
+            "POST",
+            "/auth/mfa/verify",
+            "MFA(OTP) 코드 검증",
+            "요청: mfaToken, otpCode / 응답: accessToken, refreshToken"
+          ],
+          [
+            "GET",
+            "/auth/.well-known/jwks.json",
+            "JWT 서명 검증용 공개키 목록 제공",
+            "요청 없음 / 응답: JWKS(JSON Web Key Set)"
+          ],
+          [
+            "GET",
+            "/rbac/users/{userId}/roles",
+            "사용자의 조직/워크스페이스 역할·권한 조회",
+            "path: userId / 응답: roles[], permissions[]"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-1a. Auth/Identity Service - DB 스키마",
+      "paragraphs": [
+        "Auth/Identity Service는 전용 PostgreSQL 스키마(auth_db)를 소유하며, 다른 서비스는 이 스키마에 직접 접근하지 않고 반드시 API 또는 Kafka 이벤트를 통해서만 데이터를 참조한다(Database-per-Service 원칙). 아래는 핵심 테이블 구조이며, 모든 테이블은 created_at/updated_at 감사 컬럼을 공통으로 포함한다."
+      ],
+      "table": {
+        "headers": [
+          "테이블명",
+          "주요 컬럼",
+          "설명"
+        ],
+        "rows": [
+          [
+            "users",
+            "id(PK, UUID), org_id(FK), email(UNIQUE), password_hash, status(ACTIVE/SUSPENDED/DELETED), mfa_enabled(bool), last_login_at",
+            "사용자 계정의 핵심 정보를 저장. password_hash는 로컬 계정에만 존재하며 SSO 전용 계정은 NULL"
+          ],
+          [
+            "identity_providers",
+            "id(PK), user_id(FK), provider(GOOGLE/MICROSOFT), provider_uid, provider_email, linked_at",
+            "사용자별 연동된 외부 SSO 자격증명 매핑. 한 사용자가 복수 IdP를 연결 가능"
+          ],
+          [
+            "roles / permissions",
+            "roles: id(PK), org_id(FK), name, is_custom(bool) / permissions: id(PK), code(UNIQUE), description",
+            "조직 단위 역할 정의와 역할이 가질 수 있는 세분화된 권한 코드(예: board.write, member.invite) 목록"
+          ],
+          [
+            "user_roles / role_permissions",
+            "user_roles: user_id(FK), role_id(FK), workspace_id(nullable) / role_permissions: role_id(FK), permission_id(FK)",
+            "사용자-역할, 역할-권한 간 다대다 매핑 테이블. workspace_id가 NULL이면 조직 전체 적용"
+          ],
+          [
+            "refresh_tokens",
+            "token_id(PK, UUID), user_id(FK), issued_at, expires_at, device_fingerprint, revoked(bool)",
+            "리프레시 토큰 메타데이터. 실제 토큰 검증/조회 성능을 위해 Redis에도 미러링하여 캐싱"
+          ],
+          [
+            "mfa_devices",
+            "id(PK), user_id(FK), type(TOTP/WEBAUTHN), secret_encrypted, verified_at, is_primary(bool)",
+            "사용자별 등록된 MFA 인증 수단. secret은 KMS 키로 암호화하여 저장"
+          ],
+          [
+            "audit_logs",
+            "id(PK), user_id(FK, nullable), org_id, event_type(LOGIN/LOGOUT/ROLE_CHANGE 등), ip_address, occurred_at",
+            "로그인/권한변경 등 보안 감사 이벤트 이력. 90일 후 Cold Storage(S3)로 아카이빙"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-2. Workspace/Project Service",
+      "paragraphs": [
+        "Workspace/Project Service는 네오보드에서 협업의 조직적 단위(워크스페이스·프로젝트·보드·태스크)를 관리하는 핵심 도메인 모듈이다. 책임 범위는 크게 다섯 가지로, (1) 조직(organization) 산하 워크스페이스의 생성·수정·보관(archive), (2) 워크스페이스 내 프로젝트 생성 및 프로젝트별 설정(공개범위, 템플릿) 관리, (3) 프로젝트에 속한 칸반 보드와 태스크(카드)의 CRUD, 상태(컬럼) 전이, 담당자·마감일·우선순위 관리, (4) 워크스페이스/프로젝트 단위 멤버 초대(이메일 링크, 조직 내부 초대)와 역할(Owner/Admin/Member/Guest) 기반 접근제어, (5) 반복 업무를 자동화하는 워크플로우 빌더(조건-트리거-액션 규칙 정의 및 실행 엔진)이다.",
+        "본 서비스는 Board Service 계열 중에서도 '구조와 절차'를 다루는 모듈로, 실시간 공동편집(CRDT 동기화, 커서 프레즌스)은 Realtime Collaboration Service가 전담하고, 본 서비스는 태스크의 상태·소유권·이력 등 영속 데이터의 정합성과 비즈니스 규칙(권한 검증, 워크플로우 실행)을 책임진다. 즉 사용자가 카드를 드래그하여 컬럼을 이동시키는 저지연 시각적 반영은 Realtime Collaboration Service의 WebSocket 브로드캐스트로 처리되고, 그 결과로 확정된 상태 변경(태스크 status 컬럼 갱신, 워크플로우 트리거 평가)은 본 서비스가 최종 기록한다. 두 서비스는 Redis Pub/Sub 채널과 Kafka 토픽(task-updated)을 통해 상태를 동기화한다.",
+        "워크플로우 자동화 빌더는 '트리거(예: 태스크 상태가 Done으로 변경됨) → 조건(담당자가 특정 팀에 속함) → 액션(다른 태스크 자동 생성, 알림 발송, 담당자 자동 배정)' 구조의 규칙을 사용자가 UI에서 노코드로 구성할 수 있게 하며, 규칙 정의는 workflow_rules 테이블에 JSONB로 저장된다. 태스크 변경 이벤트는 Kafka의 workflow-trigger-events 토픽에 발행되고, 워크플로우 실행 엔진(본 서비스 내 비동기 컨슈머 모듈)이 이를 구독하여 조건을 평가한 뒤 액션을 수행한다. 이를 통해 워크플로우 평가 로직이 태스크 CRUD 트랜잭션과 결합되지 않아 API 응답 지연에 영향을 주지 않는다.",
+        "의존 서비스 및 연동: Workspace/Project Service는 (1) Auth Service로부터 JWT를 전달받아 API Gateway 단계에서 검증된 사용자 컨텍스트(org_id, user_id)를 사용하며 자체 인증 로직은 두지 않는다. (2) 멤버 초대 시 Notification Service에 Kafka 이벤트(member-invited)를 발행하여 이메일/Slack 알림 발송을 위임한다. (3) 워크플로우 액션 중 '태스크 요약 자동 생성'과 같은 항목은 AI Assistant Service에 비동기 요청을 보내고 결과를 콜백으로 수신한다. (4) 태스크 첨부파일은 File Storage Service의 Presigned URL 발급 API를 참조하며, 실제 파일 바이너리는 본 서비스가 직접 다루지 않는다. (5) 보드/태스크 제목 및 본문의 전문 검색은 태스크 변경 시 Kafka를 통해 Search Service로 인덱싱 이벤트를 전달하는 방식으로 느슨하게 결합한다. (6) 태스크 카드의 실시간 위치·상태 프레즌스는 Realtime Collaboration Service와 Redis Pub/Sub 채널(board:{boardId}:presence)을 공유한다.",
+        "기술스택 및 선정 이유: 서비스 본체는 Kotlin/Spring Boot 3(JPA/Hibernate)로 구현하여 Board Service 계열의 나머지 모듈과 동일한 언어·프레임워크를 사용함으로써 백엔드팀 내 코드 재사용성과 온보딩 비용을 낮췄다. 워크스페이스/프로젝트 계층 구조와 권한 관계는 참조 무결성이 중요한 트랜잭션 데이터이므로 PostgreSQL을 사용하며, 대량 태스크 조회(보드 렌더링) 성능을 위해 project_id·board_id 기준 복합 인덱스를 적용한다. 워크플로우 규칙의 트리거-조건-액션 구조는 스키마 변경 없이 유연하게 확장해야 하므로 JSONB 컬럼으로 저장한다. 멤버 목록·역할 캐시, 워크스페이스 설정 등 조회 빈도가 높고 변경이 적은 데이터는 Redis에 캐싱하여 매 요청마다 DB를 조회하지 않도록 한다. 워크플로우 트리거 평가와 서비스 간 이벤트 전파는 Kafka를 사용하여 동기 호출 체인으로 인한 지연과 장애 전파를 방지했으며, 이는 회사 전체 아키텍처 원칙(비동기 이벤트는 Kafka로 통일)과도 일치한다."
+      ],
+      "table": {
+        "headers": [
+          "Method",
+          "Path",
+          "설명"
+        ],
+        "rows": [
+          [
+            "POST",
+            "/api/v1/workspaces",
+            "워크스페이스 생성 (조직 내 신규 워크스페이스 등록, 생성자는 Owner 역할 자동 부여)"
+          ],
+          [
+            "POST",
+            "/api/v1/projects",
+            "프로젝트 생성 (워크스페이스 지정, 템플릿 선택 가능)"
+          ],
+          [
+            "GET",
+            "/api/v1/boards/{boardId}/tasks",
+            "보드의 컬럼별 태스크 목록 조회 (칸반 화면 렌더링용)"
+          ],
+          [
+            "POST",
+            "/api/v1/boards/{boardId}/tasks",
+            "태스크(카드) 생성, 초기 컬럼·담당자·마감일 지정"
+          ],
+          [
+            "PATCH",
+            "/api/v1/tasks/{taskId}",
+            "태스크 상태(컬럼)·담당자·우선순위·마감일 변경"
+          ],
+          [
+            "POST",
+            "/api/v1/workspaces/{workspaceId}/members/invite",
+            "이메일 기반 멤버 초대 발송 (초대 링크 생성, Notification Service 위임)"
+          ],
+          [
+            "PATCH",
+            "/api/v1/workspaces/{workspaceId}/members/{userId}/role",
+            "멤버 역할 변경 (Owner/Admin/Member/Guest)"
+          ],
+          [
+            "POST",
+            "/api/v1/projects/{projectId}/workflows",
+            "워크플로우 자동화 규칙 생성 (트리거/조건/액션 정의)"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-2a. Workspace/Project Service - DB 스키마",
+      "paragraphs": [],
+      "table": {
+        "headers": [
+          "테이블명",
+          "주요 컬럼",
+          "설명"
+        ],
+        "rows": [
+          [
+            "workspaces",
+            "id, org_id, name, description, status, owner_id, created_at, archived_at",
+            "조직 산하 워크스페이스, status로 활성/보관 상태 관리"
+          ],
+          [
+            "workspace_members",
+            "workspace_id, user_id, role, invited_by, invited_at, joined_at",
+            "워크스페이스별 멤버 및 역할(Owner/Admin/Member/Guest), 복합 PK(workspace_id, user_id)"
+          ],
+          [
+            "projects",
+            "id, workspace_id, name, template_type, visibility, created_by, created_at",
+            "워크스페이스 내 프로젝트, template_type으로 초기 보드 구조 결정"
+          ],
+          [
+            "boards",
+            "id, project_id, title, column_config, position, created_at, updated_at",
+            "칸반 보드, column_config(JSONB)에 컬럼(To Do/In Progress/Done 등) 정의 저장"
+          ],
+          [
+            "tasks",
+            "id, board_id, column_key, title, description, assignee_id, priority, due_date, position, created_by, updated_at",
+            "보드 내 태스크(카드), column_key로 현재 상태 컬럼 참조, position으로 정렬 순서 관리"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-3. Document Collaboration Service",
+      "paragraphs": [
+        "Document Collaboration Service는 네오보드 내 리치 텍스트 문서(카드에 첨부되는 별도 문서형 콘텐츠 및 독립 문서함) 편집을 전담하는 컴포넌트로, (1) 다중 사용자 실시간 공동편집과 충돌 해결, (2) 문서 버전 이력 관리 및 복원, (3) 편집 참여자 간 커서·선택영역(프레즌스) 동기화, (4) 네트워크 단절 후 재접속 시 로컬 편집분과 서버 상태의 오프라인 병합, (5) 문서를 PDF/DOCX 등 외부 포맷으로 내보내는 비동기 변환을 책임진다. 보드/카드 CRUD와 권한(RBAC)은 Board Service가 소유하며, 본 서비스는 documents.board_id로 상위 카드·보드를 참조할 뿐 자체 권한 저장소를 두지 않는다.",
+        "충돌 해결 알고리즘으로는 Operational Transformation(OT) 대신 CRDT를 채택했다. OT는 서버가 모든 편집 연산의 순서를 중앙에서 변환·중재해야 하므로 서버 로직이 복잡하고, 클라이언트가 오프라인 상태에서 누적한 연산을 재접속 시점에 안전하게 재정렬하기 어렵다는 한계가 있다. 반면 CRDT는 각 클라이언트가 로컬에서 독립적으로 편집을 적용한 뒤 임의 순서로 병합해도 수학적으로 동일한 최종 상태로 수렴하므로, 서버는 병합 연산의 정합성을 보장하는 중재자가 아니라 업데이트를 릴레이·영속화하는 역할로 단순화된다. CRDT 구현체는 시퀀스형 CRDT 중에서도 텍스트 편집에 특화된 YATA(Yet Another Transformation Approach) 알고리즘 기반의 Yjs 라이브러리를 채택했다. RGA·Logoot 계열 대비 삭제된 원소의 tombstone을 최소화해 장문 문서에서 메모리 오버헤드가 낮고, Automerge 대비 바이너리 업데이트 인코딩이 컴팩트하여 WebSocket 트래픽과 클라이언트 초기 로딩 비용이 작다는 점이 결정적 근거였다.",
+        "다만 Yjs는 JavaScript/TypeScript 네이티브 라이브러리로 JVM 상에서 성숙한 포트가 존재하지 않아, Document Collaboration Service는 Kotlin/Ktor로 구현된 WebSocket 게이트웨이(연결 인증, Rate Limiting, Redis Pub/Sub 팬아웃)와 실제 CRDT 병합·상태벡터 연산을 수행하는 Node.js 기반 y-websocket 사이드카 워커의 하이브리드 구조로 구성된다. 게이트웨이는 클라이언트로부터 수신한 CRDT 업데이트를 사이드카로 전달해 병합시키고, 병합 결과를 200ms 디바운스 주기로 document_updates 테이블에 append하며, 5분 주기 또는 update 500건 누적 시 스냅샷 압축(Garbage Collection)을 실행해 tombstone 누적에 따른 문서 비대화를 방지한다. 재접속 클라이언트는 자신이 마지막으로 보유한 상태벡터를 서버에 제시하고, 서버는 그 시점 이후의 update만 델타로 전송하는 방식으로 오프라인 병합을 처리한다.",
+        "의존 서비스: Board Service — 문서가 속한 카드/보드의 존재 및 접근 권한(Viewer 이상 편집 가능 여부)을 API Gateway 경유 호출로 위임 검증한다. Auth Service — WebSocket 연결 및 REST 호출 시 JWT 유효성을 검증한다. File Storage Service — 내보내기 결과물(PDF/DOCX)을 S3에 저장하고 다운로드용 Presigned URL을 발급받는다. Notification Service — 내보내기 완료, 버전 복원 등 이벤트 발생 시 Kafka 토픽(document-export-completed, document-version-restored)을 통해 알림 발송을 트리거한다. Redis Cluster — 다중 Pod로 수평 확장된 게이트웨이 인스턴스 간 CRDT 델타 및 프레즌스(커서) 브로드캐스트를 Pub/Sub로 중계하여 세션 어피니티 없이 동작하게 한다.",
+        "기술스택 및 선정 이유: WebSocket 게이트웨이는 Kotlin/Ktor를 사용해 Board Service(Spring Boot)와 언어를 통일하면서도 경량 코루틴 기반으로 대량 동시 접속을 저비용 처리한다. CRDT 병합 워커는 Node.js + Yjs(y-websocket) 사이드카로 분리해 JVM 생태계의 CRDT 라이브러리 공백을 우회했다. 업데이트 로그와 버전 스냅샷은 PostgreSQL(BYTEA/JSONB 컬럼, document_id 기준 파티셔닝)에 저장해 트랜잭션 무결성을 확보하고, 세션 프레즌스와 델타 브로드캐스트에는 Redis 7 Cluster(Pub/Sub)를 사용해 지연을 최소화했다. 문서 내보내기는 오픈소스 LibreOffice 기반 헤드리스 변환 API인 Gotenberg를 자체 K8s 클러스터에 배포해 사용하며, 이는 상용 변환 SaaS 대비 비용이 없고 사내망 폐쇄 배포(하이브리드 고객사)에도 동일하게 적용 가능하다는 점이 선정 이유다. 내보내기 작업은 즉시 응답이 불필요한 장시간 작업이므로 Kafka 토픽(document-export-requested)으로 비동기 큐잉하여 처리한다."
+      ],
+      "table": {
+        "headers": [
+          "Method/Event",
+          "Path",
+          "설명"
+        ],
+        "rows": [
+          [
+            "POST",
+            "/api/v1/docs/{docId}/sessions",
+            "문서 편집 세션 시작, 현재 CRDT 스냅샷과 상태벡터 반환"
+          ],
+          [
+            "WS",
+            "/realtime/docs/{docId}",
+            "CRDT 업데이트 동기화용 WebSocket 연결 수립 (y-websocket 프로토콜)"
+          ],
+          [
+            "EVENT",
+            "sync-step (WS 메시지)",
+            "접속 시 클라이언트-서버 상태벡터 교환 및 누락 업데이트 델타 전송"
+          ],
+          [
+            "EVENT",
+            "awareness-update (WS 메시지)",
+            "편집 참여자의 커서 위치·선택영역·프레즌스 정보 실시간 브로드캐스트"
+          ],
+          [
+            "POST",
+            "/api/v1/docs/{docId}/offline-sync",
+            "재접속 클라이언트가 오프라인 중 누적한 로컬 업데이트 배치를 병합 요청"
+          ],
+          [
+            "GET",
+            "/api/v1/docs/{docId}/versions",
+            "문서 버전 이력 목록 조회 (버전 번호, 작성자, 변경 요약)"
+          ],
+          [
+            "POST",
+            "/api/v1/docs/{docId}/versions/{versionId}/restore",
+            "지정 버전으로 복원 (기존 이력을 덮지 않고 신규 버전으로 기록)"
+          ],
+          [
+            "POST",
+            "/api/v1/docs/{docId}/export",
+            "문서를 PDF/DOCX로 내보내는 비동기 변환 작업 요청 (완료 시 GET /api/v1/docs/export-jobs/{jobId}로 상태 조회)"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-3a. Document Collaboration Service - DB 스키마",
+      "paragraphs": [],
+      "table": {
+        "headers": [
+          "테이블명",
+          "주요 컬럼",
+          "설명"
+        ],
+        "rows": [
+          [
+            "documents",
+            "id, board_id, card_id, title, crdt_doc_id, current_version_no, status, created_at, updated_at",
+            "문서 기본 정보, Board Service의 카드/보드를 참조하는 상위 FK 보유"
+          ],
+          [
+            "document_updates",
+            "id, document_id, client_id, update_seq, update_data(BYTEA), applied_at",
+            "Yjs CRDT 바이너리 업데이트 로그, document_id 기준 파티셔닝, 주기적 스냅샷 압축(GC) 대상"
+          ],
+          [
+            "document_versions",
+            "id, document_id, version_no, snapshot_ref(S3 key), change_summary, created_by, created_at",
+            "버전 스냅샷 이력, 복원(restore) 요청 시 참조되는 시점 데이터"
+          ],
+          [
+            "document_sessions",
+            "id, document_id, user_id, client_id, connected_at, disconnected_at, cursor_position(JSONB)",
+            "활성 편집 세션 및 프레즌스(커서/선택영역) 최신 상태"
+          ],
+          [
+            "export_jobs",
+            "id, document_id, format(PDF/DOCX), status, requested_by, s3_key, requested_at, completed_at",
+            "문서 내보내기 비동기 작업 큐 및 결과 파일 위치, Kafka 이벤트로 상태 전이"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-4. Notification Service",
+      "paragraphs": [
+        "Notification Service는 네오보드 전 서비스에서 발생하는 이벤트를 수신하여 이메일, 푸시, 인앱 알림 3개 채널로 사용자에게 전달하는 알림 전담 컴포넌트다. 핵심 책임은 (1) 이메일/푸시/인앱 알림 발송, (2) 사용자별 알림 구독설정(어떤 이벤트를 어떤 채널로 받을지) 관리, (3) 채널·언어별 알림 템플릿 관리, (4) 발송 실패 시 재시도 및 오류 처리, (5) 알림 이력 조회 및 감사 대응이다. 백엔드팀이 Board Service, File Storage Service와 함께 오너십을 갖는 모듈로, Kotlin/Spring Boot 기반 독립 배포 서비스로 운영된다.",
+        "채널별로는 이메일(SendGrid 연동, 초대·정산·보안 관련 알림 등 확인이 필요한 통지에 사용), 푸시(Firebase Cloud Messaging을 통해 웹 푸시와 모바일 푸시를 단일 인터페이스로 처리), 인앱(Redis Pub/Sub과 WebSocket을 통한 실시간 배지/토스트 알림, 미접속 시 GET /api/v1/notifications 폴백 조회)을 지원한다. 사용자는 알림 유형(댓글 멘션, 보드 초대, AI 요약 완료, 결제 실패 등) × 채널 조합별로 수신 여부를 세부 설정할 수 있으며, 과도한 알림 피로를 줄이기 위해 이메일 채널은 기본적으로 15분 단위 다이제스트로 묶어 발송한다. 템플릿은 채널·언어(ko/en)·알림 유형별로 버전 관리되며, 운영자가 코드 배포 없이 문구를 수정할 수 있도록 관리자 API를 별도 제공한다.",
+        "발송 실패 처리는 Kafka 컨슈머가 메시지를 성공적으로 처리(채널 발송 완료)한 시점에만 오프셋을 커밋하는 방식을 기본으로 하며, 발송 실패 시 Resilience4j 기반 지수 백오프로 최대 5회 재시도한다. 재시도가 모두 실패하면 notification-dlq 토픽으로 이관하여 온콜 담당자에게 별도 경보(Slack Webhook)를 발송하고, 실패 사유는 notification_delivery_logs 테이블에 채널·시도 횟수·에러 메시지 단위로 기록되어 이후 감사 및 장애 분석에 활용된다.",
+        "의존 서비스 구조(Kafka 기반 이벤트 구독): Notification Service는 자체적으로 알림을 트리거하지 않고, 도메인 이벤트를 발행하는 여러 서비스의 Kafka 토픽을 구독하는 순수 소비자(Consumer)로 동작한다. 구독 토픽은 board-events(보드 초대, 카드 멘션, 댓글 등록 — Board Service 발행), realtime-events(장시간 미접속 사용자 대상 미확인 편집 요약 — Realtime Collaboration Service 발행), ai-events(AI 요약/태깅 완료 — AI Assistant Service 발행), auth-events(비밀번호 변경, 신규 기기 로그인 등 보안 알림 — Auth Service 발행), billing-events(정기결제 실패, 플랜 만료 임박 — 구독/결제 모듈 발행)의 5개다. 각 토픽은 독립된 컨슈머 그룹으로 처리되어 특정 도메인 이벤트 처리 지연이 다른 알림 유형에 영향을 주지 않으며, 동일 이벤트의 중복 소비를 막기 위해 이벤트 ID 기준 Redis SETNX 멱등성 체크를 선행한다. 이 구조를 통해 상위 서비스는 알림 발송 방식(채널, 템플릿, 재시도)을 전혀 알 필요 없이 도메인 이벤트만 발행하면 되므로 서비스 간 결합도가 낮게 유지된다.",
+        "기술 스택 선정 이유: 애플리케이션은 Kotlin/Spring Boot 3 + Spring Kafka로 구현하여 백엔드팀의 기존 스택(Board Service와 동일)을 재사용함으로써 팀 내 코드 리뷰·온보딩 비용을 낮췄다. 이벤트 수신은 Kafka(AWS MSK, 회사 공통 이벤트 버스)를 그대로 활용해 별도의 메시징 인프라를 신설하지 않았다. 이메일은 이미 조직 차원에서 계약된 SendGrid를 사용하고, 푸시는 웹/안드로이드/iOS(Electron 래퍼 경유)를 단일 API로 다룰 수 있는 FCM을 채택해 벤더 연동 지점을 최소화했다. 멱등성 체크와 다이제스트 배치를 위한 임시 상태 저장은 신규 인프라 대신 기존 Redis Cluster를 재사용했으며, 정기 다이제스트 발송은 Spring Scheduler(Quartz 기반) 배치 잡으로 처리한다. 이력 및 구독설정 등 정형 데이터는 회사 표준인 PostgreSQL에 저장하여 ADR-04(단일 RDBMS 유지) 원칙을 따른다."
+      ],
+      "table": {
+        "headers": [
+          "Method",
+          "Path",
+          "설명"
+        ],
+        "rows": [
+          [
+            "GET",
+            "/api/v1/notifications",
+            "로그인 사용자의 인앱 알림 목록 조회 (페이지네이션, 읽음/안읽음 필터)"
+          ],
+          [
+            "PATCH",
+            "/api/v1/notifications/{notificationId}/read",
+            "특정 알림 읽음 처리"
+          ],
+          [
+            "POST",
+            "/api/v1/notifications/read-all",
+            "사용자의 전체 미확인 알림 일괄 읽음 처리"
+          ],
+          [
+            "GET",
+            "/api/v1/notifications/subscriptions",
+            "사용자별 알림 유형×채널 구독설정 조회"
+          ],
+          [
+            "PUT",
+            "/api/v1/notifications/subscriptions",
+            "알림 유형×채널별 수신 여부 변경 (다이제스트 주기 포함)"
+          ],
+          [
+            "GET",
+            "/api/v1/admin/notifications/templates",
+            "채널/언어별 알림 템플릿 목록 조회 (운영자 전용)"
+          ],
+          [
+            "POST",
+            "/api/v1/admin/notifications/templates",
+            "알림 템플릿 신규 등록 또는 버전 수정 (운영자 전용)"
+          ],
+          [
+            "GET",
+            "/api/v1/admin/notifications/delivery-logs",
+            "발송 이력 및 실패 로그 조회 (운영자/보안 감사 전용)"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-4a. Notification Service - DB 스키마",
+      "paragraphs": [],
+      "table": {
+        "headers": [
+          "테이블명",
+          "주요 컬럼",
+          "설명"
+        ],
+        "rows": [
+          [
+            "notifications",
+            "id, user_id, type, channel, payload(JSONB), status, read_at, created_at",
+            "사용자별 인앱 알림 원본 데이터 및 읽음 상태 관리"
+          ],
+          [
+            "notification_subscriptions",
+            "user_id, notification_type, channel, enabled, digest_interval, updated_at",
+            "사용자별 알림 유형×채널 구독 온/오프 및 다이제스트 주기 설정"
+          ],
+          [
+            "notification_templates",
+            "id, type, channel, locale, subject, body_template, version, updated_by, updated_at",
+            "알림 유형·채널·언어(ko/en)별 템플릿, 버전 이력 관리로 롤백 지원"
+          ],
+          [
+            "notification_delivery_logs",
+            "id, notification_id, channel, provider, status, attempt_count, error_message, sent_at",
+            "채널별 발송 시도/성공/실패 이력, 재시도 횟수 및 오류 메시지 추적용"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-5. AI Summary Service",
+      "paragraphs": [
+        "AI Summary Service는 네오보드 내에서 생성되는 회의록, 첨부 문서, 채팅 스레드를 자동으로 요약하고 그로부터 실행항목(Action Item)을 추출하여 담당자를 배정하는 AI 전담 컴포넌트다. 핵심 책임은 (1) 회의록/문서/채팅 자동 요약 생성, (2) 요약 결과에서 실행항목을 추출하고 참여자 목록·과거 배정 이력을 근거로 담당자를 매칭, (3) 요약 결과의 캐싱 및 재사용을 통한 LLM 호출 비용·지연시간 절감, (4) 외부 LLM 호출의 오케스트레이션(프롬프트 조립, 재시도, 폴백, 비용/토큰 계측), (5) 문서 임베딩 생성 및 pgvector 기반 벡터 저장을 통한 유사 문서 추천이다. 본 기능은 PRJ-2026-05(AI 요약 기능) 프로젝트의 핵심 산출물로, AI팀이 오너십을 갖는 Kotlin/Spring Boot 기반 독립 배포 서비스로 운영되며 K8s(EKS) 상에서 별도 워크로드(GPU 미사용, CPU 기반 오케스트레이션 전용)로 분리 배포된다.",
+        "요약 파이프라인은 비동기 방식으로 동작한다. Board/Document/Chat 서비스에서 요약 대상 이벤트(회의록 저장, 문서 확정, 채팅 스레드 종료 등)가 발생하면 Kafka를 통해 요약 요청이 큐잉되고, 워커가 리소스 유형별 프롬프트 템플릿을 조립해 LLM을 호출한다. 응답으로 받은 요약 결과는 마크다운 형태로 정규화되어 저장되며, 동일 리소스에 대해 원문 해시가 변하지 않은 재요약 요청은 Redis 캐시(TTL 24시간) 히트 시 LLM 호출 없이 즉시 반환하고, 캐시 미스 시에도 PostgreSQL의 ai_summaries 테이블을 조회해 최근 생성된 결과가 있으면 이를 우선 반환함으로써 이중 캐싱 구조를 갖는다. 실행항목 추출은 요약 생성과 동일한 LLM 호출에서 구조화 출력(JSON 스키마 강제)으로 함께 반환받으며, 추출된 담당자 후보 텍스트(예: '김민준님이')는 워크스페이스 멤버 목록과 이름/닉네임 유사도 매칭 및 최근 카드 배정 이력을 참고해 실제 user_id로 해석한다. 매칭 신뢰도가 임계값 미만이면 담당자를 비워두고 카드 작성자가 수동 확인하도록 인앱 알림을 발행한다(Notification Service의 ai-events 토픽 구독을 통해 전달).",
+        "임베딩 생성 및 유사 문서 추천 기능은 요약 파이프라인과 별도의 트랙으로 동작한다. 문서가 저장되거나 갱신되면 File Storage/Document Service가 발행하는 이벤트를 구독하여 본문을 800토큰 단위로 청킹하고, 각 청크에 대해 임베딩을 생성한 뒤 pgvector 확장이 설치된 PostgreSQL에 벡터로 저장한다. 유사 문서 조회 시에는 코사인 거리 기반 근사 최근접 이웃 검색(IVFFlat 인덱스)을 사용해 상위 N개 문서를 반환하며, 워크스페이스 경계를 벗어난 문서는 검색 대상에서 제외해 테넌트 간 데이터 격리를 보장한다.",
+        "의존 서비스 및 외부 LLM 연동: AI Summary Service는 내부적으로 Board Service·Document Service·Realtime Collaboration Service(채팅)가 발행하는 요약 트리거 이벤트(summary-request-events)와 File Storage Service가 발행하는 문서 변경 이벤트(document-events)를 Kafka로 구독하는 소비자인 동시에, 요약/실행항목 생성 완료 시 ai-events 토픽을 발행해 Notification Service(완료 알림)와 Board Service(카드 자동 생성)에 결과를 전달하는 발행자 역할도 겸한다. 외부 LLM 연동은 사내 표준 LLM Gateway(OpenAI GPT 계열을 1차, Anthropic Claude 계열을 폴백 provider로 구성한 프록시 레이어)를 경유하며, 서비스가 벤더 API를 직접 호출하지 않고 게이트웨이의 단일 인터페이스만 바라보도록 하여 provider 교체나 장애 시 폴백 전환에 코드 변경이 필요 없게 했다. 회의록·문서 원문은 프롬프트 전송 전 정규식 및 자체 PII 탐지 모델로 이메일·전화번호·주민등록번호 패턴을 마스킹하며, LLM Gateway 호출은 Resilience4j 서킷 브레이커와 함께 provider별 타임아웃(15초) 및 최대 2회 재시도가 적용되고, 연속 실패 시 폴백 provider로 자동 전환된다. 임베딩 생성은 별도의 임베딩 전용 모델(OpenAI text-embedding 계열)을 사용하며 요약용 LLM 호출과는 독립된 rate limit·비용 버킷으로 관리된다.",
+        "기술 스택 선정 이유: 애플리케이션 계층은 Kotlin/Spring Boot 3로 구현해 백엔드팀 표준 스택과 통일함으로써 타 서비스와의 코드 리뷰·배포 파이프라인·모니터링 방식을 공유한다. 이벤트 수신/발행은 회사 공통 이벤트 버스인 Kafka(AWS MSK)를 그대로 사용해 별도 메시징 인프라를 신설하지 않았다. 요약·실행항목 캐시는 응답 지연이 짧아야 하는 특성상 Redis Cluster를 우선 조회 계층으로 두고, 캐시 유실 시에도 재구성이 가능하도록 원본은 PostgreSQL에 영속화하는 2단 구조를 택했다. 벡터 저장소로는 별도의 전용 벡터 DB(Pinecone, Milvus 등) 도입 대신 pgvector 확장을 선택했는데, 이는 ADR-04(단일 RDBMS 유지) 원칙에 부합하면서도 문서 메타데이터(권한, 워크스페이스 ID)와 벡터를 동일 트랜잭션·동일 조인 쿼리로 다룰 수 있어 별도 데이터 동기화 파이프라인이 불필요하기 때문이다. 외부 LLM은 사내 LLM Gateway를 통해 OpenAI를 1차, Anthropic Claude를 폴백으로 이중화하여 특정 벤더 장애나 요금 정책 변경에 대한 종속성을 낮췄고, LLM 호출 오케스트레이션에는 Spring 진영과 통합이 쉬운 Resilience4j를 재시도·서킷 브레이커 라이브러리로 채택했다."
+      ],
+      "table": {
+        "headers": [
+          "Method",
+          "Path",
+          "설명"
+        ],
+        "rows": [
+          [
+            "POST",
+            "/api/v1/ai/summaries",
+            "회의록/문서/채팅 요약 생성 요청 (비동기, 202 Accepted 후 상태 폴링 또는 웹훅)"
+          ],
+          [
+            "GET",
+            "/api/v1/ai/summaries/{summaryId}",
+            "요약 결과 상세 조회 (요약문, 사용 모델, 생성 상태)"
+          ],
+          [
+            "GET",
+            "/api/v1/ai/summaries",
+            "리소스 유형/ID 기준 요약 이력 목록 조회 (resourceType, resourceId 쿼리 파라미터)"
+          ],
+          [
+            "POST",
+            "/api/v1/ai/summaries/{summaryId}/regenerate",
+            "요약 강제 재생성 요청 (캐시 무시, 원문 변경 없어도 재호출)"
+          ],
+          [
+            "GET",
+            "/api/v1/ai/action-items",
+            "특정 요약에서 추출된 실행항목 목록 조회 (summaryId 쿼리 파라미터)"
+          ],
+          [
+            "PATCH",
+            "/api/v1/ai/action-items/{actionItemId}",
+            "실행항목의 담당자·마감일·상태 수동 수정"
+          ],
+          [
+            "POST",
+            "/api/v1/ai/embeddings",
+            "문서 임베딩 생성 요청 (내부 서비스 간 호출, 문서 저장/갱신 시 트리거)"
+          ],
+          [
+            "GET",
+            "/api/v1/ai/documents/{documentId}/similar",
+            "벡터 유사도 기반 유사 문서 추천 목록 조회 (상위 N건)"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-5a. AI Summary Service - DB 스키마",
+      "paragraphs": [],
+      "table": {
+        "headers": [
+          "테이블명",
+          "주요 컬럼",
+          "설명"
+        ],
+        "rows": [
+          [
+            "ai_summaries",
+            "id, workspace_id, resource_type, resource_id, source_hash, summary_text, model, status, created_at",
+            "리소스별 요약 결과 저장, source_hash로 원문 변경 여부 판별해 캐시 재사용 여부 결정"
+          ],
+          [
+            "ai_action_items",
+            "id, summary_id, description, assignee_user_id, match_confidence, due_date, status, created_at",
+            "요약에서 추출된 실행항목, LLM이 제안한 담당자 매칭 신뢰도 및 최종 확정 담당자 기록"
+          ],
+          [
+            "ai_document_embeddings",
+            "id, document_id, chunk_index, content_chunk, embedding VECTOR(1536), created_at",
+            "pgvector 확장을 이용한 문서 청크 단위 임베딩 저장, IVFFlat 인덱스로 유사도 검색 지원"
+          ],
+          [
+            "ai_embedding_jobs",
+            "id, document_id, status, chunk_count, retry_count, last_error, updated_at",
+            "임베딩 생성 비동기 작업의 진행 상태 추적 및 실패 시 재처리 대상 관리"
+          ],
+          [
+            "ai_llm_call_logs",
+            "id, request_type, provider, model, prompt_tokens, completion_tokens, latency_ms, status, requested_at",
+            "요약/임베딩 목적 외부 LLM 호출 이력, 토큰 사용량·지연시간·실패율 계측 및 비용 정산 근거"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-6. Billing/Subscription Service",
+      "paragraphs": [
+        "Billing/Subscription Service는 네오보드의 유료화 정책을 실행하는 컴포넌트로, 요금제(플랜) 정의부터 구독 생명주기 관리, PG사(결제대행사) 연동, 인보이스 발행, 결제 실패 시 재시도, 사용량 기반 과금 집계까지를 전담한다. 핵심 책임은 (1) 플랜(Free/Starter/Business/Enterprise) 및 플랜별 기능·좌석 한도 정의, (2) 구독 생성·업그레이드/다운그레이드·해지·재활성화 등 상태 전이 관리, (3) PG사(토스페이먼츠, 이니시스)를 통한 카드 등록 및 정기결제 실행, (4) 결제 성공/실패에 따른 인보이스 발행 및 세금계산서 연동, (5) 결제 실패 시 Dunning(단계적 재시도) 프로세스 수행, (6) 워크스페이스별 API 호출량·저장용량·AI 사용량 등 사용량 기반 부가과금(Usage-based billing) 집계다. 백엔드팀 중 결제 도메인 전담 인력이 오너십을 가지며, 금융 규제 및 PG 연동 특성상 다른 서비스와 물리적으로 격리된 별도 VPC 서브넷에서 운영된다.",
+        "구독 상태는 TRIAL → ACTIVE → PAST_DUE → CANCELED(또는 SUSPENDED)의 상태 머신으로 관리되며, 상태 전이가 발생할 때마다 billing-events 토픽에 이벤트(subscription.upgraded, payment.failed, invoice.issued 등)를 발행해 Workspace Service(좌석 한도 반영), Notification Service(결제 실패 알림), AI Assistant Service(플랜별 AI 크레딧 조정) 등 다른 서비스가 구독 변경 사항을 이벤트 기반으로 반영하도록 한다. 플랜 변경 시 일할 계산(Proration)은 잔여 기간 기준으로 즉시 정산하며, 다운그레이드는 현재 결제 주기 종료 시점에 반영해 이미 결제된 금액의 환불 분쟁을 최소화한다. 사용량 기반 과금(Business/Enterprise 플랜의 API 초과 호출, 추가 저장용량, AI 토큰 사용량)은 각 서비스가 Kafka로 발행하는 usage-events를 실시간 집계하여 usage_records에 적재하고, 매 결제 주기 마감 시점에 배치 잡이 정액 요금과 합산해 최종 인보이스 금액을 확정한다.",
+        "결제 실패 재시도(Dunning)는 최초 결제 실패 시 즉시 구독 상태를 PAST_DUE로 전환하고, 1일/3일/7일 간격으로 최대 3회 자동 재시도한다. 3회 모두 실패하면 구독을 SUSPENDED로 전환하며 해당 워크스페이스는 읽기 전용 모드로 제한되고, Notification Service를 통해 결제 수단 갱신을 안내하는 이메일이 발송된다. 카드 정보는 PCI-DSS 규제 준수를 위해 자사 DB에 원문을 저장하지 않고 PG사가 발급한 빌링키(카드 토큰)만 암호화하여 보관하며, 카드 원본 데이터는 PG사 Vault에만 존재한다.",
+        "의존 서비스 구조(외부 PG사 연동): 정기결제 실행은 국내 PG사인 토스페이먼츠(주 결제사)와 이니시스(장애 시 폴백 및 세금계산서 발행용 보조 결제사) 두 곳과 연동한다. 결제 요청은 PG사 API를 동기 호출로 수행하되, PG사 응답 지연에 대비해 Resilience4j Circuit Breaker와 타임아웃(5초)을 적용하고, 회로가 열리면 즉시 이니시스로 폴백한다. 결제 결과 통지는 PG사가 발송하는 Webhook(비동기)을 POST /api/v1/billing/webhooks/{provider}로 수신해 최종 확정하며, Webhook 서명 검증(HMAC)을 통해 위변조를 방지한다. 세금계산서 발행은 이니시스 계열 팝빌(popbill) API를 별도로 연동해 인보이스 확정 후 자동 발행한다. PG사 장애나 응답 지연은 매출 정합성에 직결되므로, 모든 PG 호출은 billing_payment_attempts 테이블에 요청/응답 원문을 감사 로그로 남기고, 일 1회 PG사 정산 내역과 자체 DB를 대사(Reconciliation)하는 배치 잡을 운영해 불일치를 탐지한다.",
+        "기술 스택 선정 이유: 애플리케이션은 Kotlin/Spring Boot 3로 구현해 백엔드팀 공통 스택을 유지하되, 금전 계산의 정확성을 위해 모든 금액 필드는 부동소수점 대신 BigDecimal과 PostgreSQL numeric 타입을 사용한다. 정형 데이터(플랜, 구독, 인보이스, 결제 시도 이력)는 강한 정합성이 요구되므로 회사 표준 PostgreSQL을 사용하며, 구독 상태 전이는 반드시 트랜잭션 내에서 원자적으로 처리한다. 사용량 집계는 초당 대량 이벤트가 유입되므로 Kafka Streams로 실시간 부분 집계 후 주기적으로 PostgreSQL에 flush하는 방식을 택해 DB 부하를 낮췄다. PG사 응답 및 멱등키 관리, Dunning 재시도 스케줄 캐싱에는 Redis를 사용한다. 정기결제 실행과 Dunning 재시도, 사용량 마감 배치는 Spring Batch + Quartz 스케줄러로 처리하며, 별도 VPC 서브넷과 강화된 IAM 정책으로 PCI-DSS 준수 범위를 물리적으로 격리했다."
+      ],
+      "table": {
+        "headers": [
+          "Method",
+          "Path",
+          "설명"
+        ],
+        "rows": [
+          [
+            "GET",
+            "/api/v1/billing/plans",
+            "플랜(Free/Starter/Business/Enterprise) 목록 및 기능·좌석 한도 조회"
+          ],
+          [
+            "GET",
+            "/api/v1/billing/subscriptions/{workspaceId}",
+            "워크스페이스의 현재 구독 상태, 플랜, 결제 주기 조회"
+          ],
+          [
+            "POST",
+            "/api/v1/billing/subscriptions",
+            "신규 구독 생성 (Trial 시작 또는 즉시 유료 전환)"
+          ],
+          [
+            "PATCH",
+            "/api/v1/billing/subscriptions/{subscriptionId}",
+            "플랜 업그레이드/다운그레이드 (일할 계산 Proration 적용)"
+          ],
+          [
+            "DELETE",
+            "/api/v1/billing/subscriptions/{subscriptionId}",
+            "구독 해지 예약 (현재 결제 주기 종료 시점 반영)"
+          ],
+          [
+            "POST",
+            "/api/v1/billing/payment-methods",
+            "PG사 빌링키 발급 및 결제 수단(카드) 등록"
+          ],
+          [
+            "GET",
+            "/api/v1/billing/invoices",
+            "워크스페이스별 인보이스 목록 및 상세(세금계산서 포함) 조회"
+          ],
+          [
+            "POST",
+            "/api/v1/billing/webhooks/{provider}",
+            "PG사(토스페이먼츠/이니시스) 결제 결과 Webhook 수신 (HMAC 서명 검증)"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-6a. Billing/Subscription Service - DB 스키마",
+      "paragraphs": [],
+      "table": {
+        "headers": [
+          "테이블명",
+          "주요 컬럼",
+          "설명"
+        ],
+        "rows": [
+          [
+            "plans",
+            "id, name, tier, price_monthly(numeric), price_yearly(numeric), seat_limit, feature_flags(JSONB), is_active",
+            "요금제 정의, 플랜별 가격·좌석 한도·기능 플래그 관리"
+          ],
+          [
+            "subscriptions",
+            "id, workspace_id, plan_id, status, billing_cycle, current_period_start, current_period_end, canceled_at",
+            "워크스페이스별 구독 상태(TRIAL/ACTIVE/PAST_DUE/SUSPENDED/CANCELED) 및 결제 주기 관리"
+          ],
+          [
+            "invoices",
+            "id, subscription_id, amount(numeric), tax_amount(numeric), status, issued_at, paid_at, tax_invoice_no",
+            "결제 주기별 확정 청구서, 세금계산서 연동 상태 추적"
+          ],
+          [
+            "billing_payment_attempts",
+            "id, invoice_id, provider, billing_key, attempt_no, status, request_payload, response_payload, attempted_at",
+            "PG사별 결제 요청/응답 감사 로그, Dunning 재시도 횟수 추적"
+          ],
+          [
+            "usage_records",
+            "id, workspace_id, usage_type, quantity, unit_price(numeric), period_start, period_end, aggregated_at",
+            "API 호출량·저장용량·AI 토큰 등 사용량 기반 과금 원자료 집계"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-7. Search/Indexing Service",
+      "paragraphs": [
+        "Search/Indexing Service는 워크스페이스 내 흩어진 콘텐츠(문서, 태스크/카드, 채팅 메시지)를 하나의 검색 경험으로 통합 제공하는 전담 컴포넌트다. 핵심 책임은 (1) 워크스페이스 범위의 전문(全文) 검색 API 제공, (2) 문서·태스크·채팅 3종 콘텐츠의 통합 인덱싱 스키마 관리, (3) 원본 서비스에서 발생하는 Kafka 이벤트를 구독하여 인덱스를 실시간 갱신, (4) 질의어 관련도·최신성·콘텐츠 유형을 반영한 검색 결과 랭킹, (5) 사용자의 워크스페이스/보드 접근 권한을 검색 질의 시점에 반영하는 권한 필터링이다. 백엔드팀 소유로 Kotlin/Spring Boot 기반 독립 배포 서비스로 운영되며, 자체 원본 데이터(source of truth)는 갖지 않고 Document Collaboration Service·Workspace/Project Service·Realtime Collaboration(Chat) Service가 발행하는 이벤트를 구독해 파생된 읽기 전용 인덱스만 관리한다.",
+        "인덱싱 대상은 문서 본문(리치 텍스트), 태스크 제목·설명·댓글, 채팅 메시지 3종이며, 각각 원본 서비스가 발행하는 도메인 이벤트를 Kafka 컨슈머가 구독해 OpenSearch 인덱스에 반영하는 CDC(Change Data Capture) 유사 구조로 동작한다. 다만 문서는 CRDT 기반 실시간 공동편집 특성상 키 입력마다 이벤트가 발생하므로 매 변경을 즉시 색인하면 인덱싱 큐가 폭주한다. 이를 방지하기 위해 문서 인덱싱 컨슈머는 document_id 단위로 5초 디바운스 윈도우를 두어 편집이 소강 상태에 들어간 시점의 스냅샷만 색인하며, 태스크·채팅은 이벤트 발생 즉시(수백 ms 이내) 색인해 실시간성을 우선한다. 각 컨텐츠 유형은 독립된 컨슈머 그룹과 OpenSearch 인덱스로 분리되어 있어 한 유형의 인덱싱 지연이 다른 유형의 검색 가용성에 영향을 주지 않으며, 통합검색 API는 내부적으로 3개 인덱스에 대한 멀티 인덱스 질의(Multi-Index Search)를 수행한 뒤 결과를 병합한다.",
+        "검색 결과 랭킹은 OpenSearch 기본 BM25 스코어에 커스텀 function_score를 결합해 산출한다. 최신성(updated_at 기준 시간 감쇠), 콘텐츠 유형 가중치(제목 매치가 본문 매치보다 높은 부스트), 질의자의 최근 접근 이력(자신이 최근 열람·수정한 보드/문서에 가점) 3가지 신호를 반영하며, 향후 클릭 로그가 충분히 쌓이면 Learning-to-Rank 도입을 로드맵으로 검토 중이다. 권한 필터링은 검색 후 결과를 걸러내는 사후 필터(post-filter) 방식이 아니라, 색인 문서 자체에 workspace_id·board_id·acl_role_ids를 필드로 함께 저장해 두고 질의 시점에 bool filter 절로 사전 필터링하는 방식을 채택했다. 이는 사후 필터링 시 발생할 수 있는 페이지네이션 왜곡(권한 없는 문서가 상위 랭크를 차지해 실제 노출 결과 수가 줄어드는 문제)과 최악의 경우 필터링 누락으로 인한 정보 노출 위험을 원천적으로 차단하기 위함이다. 사용자의 org_id·워크스페이스별 역할은 Auth Service가 발급한 JWT 클레임에서 추출하여 매 질의에 filter 절로 주입한다.",
+        "의존 서비스: Document Collaboration Service — document-content-updated 토픽(디바운스된 문서 본문 스냅샷)을 구독해 documents_index를 갱신한다. Workspace/Project Service — board-events 토픽(태스크 생성/수정, 댓글 등록, 멘션)을 구독해 tasks_index를 갱신하고, workspace-membership-events 토픽을 구독해 ACL 필드(acl_role_ids) 재계산에 사용한다. Realtime Collaboration(Chat) Service — chat-events 토픽(채팅 메시지 발행/수정/삭제)을 구독해 chat_messages_index를 갱신한다. Auth Service — API Gateway를 경유해 검증된 JWT의 org_id·workspace role 클레임을 권한 필터 조건으로 사용하며, 본 서비스는 별도 인증 로직을 두지 않는다. Notification Service — 대규모 재색인(reindex) 작업 완료/실패 시 온콜 담당자에게 알림을 전달하기 위해 search-index-events 토픽을 발행한다(소비가 아닌 발행 방향).",
+        "기술스택 및 선정 이유: 검색 엔진은 OpenSearch(AWS 관리형, 회사 표준 EKS/AWS 인프라와 동일 VPC)를 채택했다. Elasticsearch는 라이선스 정책 변경(SSPL 전환) 이후 AWS 관리형 서비스에서 최신 버전을 사용할 수 없다는 제약이 있어, 오픈소스 라이선스(Apache 2.0)를 유지하며 Elasticsearch API 호환성이 높은 OpenSearch를 선정했고, 이는 향후 벤더 종속을 최소화하는 ADR 방향과도 일치한다. 인덱싱 컨슈머와 검색 API는 Kotlin/Spring Boot 3 + Spring Kafka로 구현해 백엔드팀 공통 스택을 재사용했다. 인기 검색어·최근 검색어 캐싱 및 자동완성 후보 사전 계산에는 기존 Redis Cluster를 재사용해 별도 캐시 인프라를 신설하지 않았다. 인덱싱 컨슈머 오프셋, 재색인 작업 이력 등 운영 메타데이터는 검색 결과 자체와 분리해 PostgreSQL의 경량 테이블(index_sync_jobs)에 기록하며, 이를 통해 OpenSearch 클러스터 장애/재구축 시에도 어느 시점부터 재색인을 재개해야 하는지 추적할 수 있다. 대규모 워크스페이스 전체 재색인은 응답 지연이 크므로 관리자 API 호출 시 즉시 처리하지 않고 Kafka(search-reindex-requested)로 비동기 큐잉해 백그라운드 배치로 처리한다."
+      ],
+      "table": {
+        "headers": [
+          "Method",
+          "Path",
+          "설명"
+        ],
+        "rows": [
+          [
+            "GET",
+            "/api/v1/search",
+            "워크스페이스 통합검색 (문서·태스크·채팅 멀티 인덱스 질의, type/기간 필터, 페이지네이션)"
+          ],
+          [
+            "GET",
+            "/api/v1/search/documents",
+            "문서 전용 전문 검색 (제목·본문 매치, 보드/작성자 필터)"
+          ],
+          [
+            "GET",
+            "/api/v1/search/tasks",
+            "태스크(카드) 전용 검색 (제목·설명·댓글 매치, 담당자/상태/우선순위 필터)"
+          ],
+          [
+            "GET",
+            "/api/v1/search/messages",
+            "채팅 메시지 전용 검색 (채널/발신자/기간 필터)"
+          ],
+          [
+            "GET",
+            "/api/v1/search/suggest",
+            "입력 중 자동완성 후보 조회 (edge n-gram 기반, 최근/인기 검색어 반영)"
+          ],
+          [
+            "POST",
+            "/api/v1/admin/search/reindex",
+            "워크스페이스 단위 전체 재색인 요청 (비동기 배치, 운영자 전용)"
+          ],
+          [
+            "GET",
+            "/api/v1/admin/search/index-status",
+            "인덱스별 동기화 지연(consumer lag)·최근 재색인 이력 조회 (운영자 전용)"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-7a. Search/Indexing Service - 인덱스 스키마",
+      "paragraphs": [],
+      "table": {
+        "headers": [
+          "인덱스명",
+          "필드구성",
+          "설명"
+        ],
+        "rows": [
+          [
+            "documents_index",
+            "document_id, board_id, workspace_id, title, content_text, tags, updated_at, acl_role_ids",
+            "문서 본문 전문 검색용 인덱스. Document Collaboration Service의 CRDT 스냅샷을 5초 디바운스 후 색인하며 content_text는 한국어 형태소 분석기(nori) 적용"
+          ],
+          [
+            "tasks_index",
+            "task_id, board_id, workspace_id, title, description, comments_text, assignee_id, status, priority, due_date, updated_at, acl_role_ids",
+            "태스크(카드) 제목·설명·댓글 통합 검색용 인덱스. board-events 토픽 수신 즉시(수백 ms 이내) 갱신"
+          ],
+          [
+            "chat_messages_index",
+            "message_id, channel_id, workspace_id, sender_id, message_text, mentions, created_at, acl_role_ids",
+            "채팅 메시지 검색용 인덱스. TTL 정책에 따라 워크스페이스 보관주기 경과 메시지는 주기 배치로 삭제"
+          ],
+          [
+            "search_suggestions_index",
+            "term, source_type, workspace_id, popularity_score, last_used_at",
+            "자동완성/추천 검색어 인덱스. edge n-gram analyzer로 접두어 매칭을 지원하고 popularity_score로 랭킹 부스팅"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-8. Video Conferencing Integration Service",
+      "paragraphs": [
+        "Video Conferencing Integration Service는 네오보드 사용자가 보드 내에서 화상회의를 예약·시작·종료할 수 있도록 외부 서드파티 화상회의 서비스(가칭 'MeetLink API')와 연동하는 게이트웨이 컴포넌트다. 핵심 책임은 (1) MeetLink API 호출을 캡슐화한 연동 게이트웨이 제공, (2) 보드/카드에 연결된 회의 예약·시작·종료 상태 관리, (3) 회의 녹화본 저장 완료 이벤트 수신 및 AI Summary Service로의 전달, (4) MeetLink에서 발생하는 Webhook(참가자 입장/퇴장, 녹화 완료, 회의 종료 등) 수신 및 내부 이벤트 변환이 그것이다. 백엔드팀 산하 협업 플랫폼 파트가 오너십을 갖는 모듈로, Kotlin/Spring Boot 기반 독립 배포 서비스로 운영되며 EKS 클러스터 내 별도 네임스페이스에서 구동된다.",
+        "회의 생명주기는 예약(scheduled) → 진행중(in_progress) → 종료(ended) → 녹화 처리중(recording_processing) → 완료(completed) 5단계로 관리되며, 각 상태 전이는 내부 API 호출 또는 MeetLink Webhook 수신을 트리거로 하여 meeting_sessions 테이블에 반영된다. 보드 카드에서 '화상회의 시작'을 클릭하면 본 서비스가 MeetLink API를 호출해 회의방을 생성하고 참가 URL을 발급하며, 발급된 URL과 회의 메타데이터는 Board Service의 카드 상세 영역에 노출된다. 회의가 종료되고 녹화본이 MeetLink 측 스토리지에 업로드 완료되면 recording.completed Webhook이 수신되고, 본 서비스는 해당 녹화 파일을 사내 오브젝트 스토리지(S3)로 복사(server-side copy)한 뒤 meeting-recording-events Kafka 토픽에 이벤트를 발행하여 AI Summary Service가 STT·요약 파이프라인을 시작하도록 한다. 이 과정에서 원본 녹화본은 MeetLink 측에 정책상 7일간만 보관되므로, S3 이관 실패 시 최대 3회 재시도 후 알림을 발송하는 안전장치를 두었다.",
+        "Webhook 수신 처리는 MeetLink가 제공하는 HMAC-SHA256 서명 검증을 모든 요청에 적용하여 위조 요청을 차단하며, 처리 순서 보장을 위해 event_id + received_at 기준으로 webhook_events 테이블에 우선 원본을 적재한 뒤 비동기 워커가 순차 처리하는 write-ahead 방식을 채택했다. 동일 이벤트가 중복 전송되는 MeetLink 특성(at-least-once delivery)을 고려하여 event_id 기준 UNIQUE 제약과 애플리케이션 레벨 멱등성 체크를 병행한다. 외부 API 장애 대응을 위해 MeetLink API 클라이언트는 Resilience4j Circuit Breaker를 적용했으며, 회의 생성 실패 시 사용자에게는 즉시 오류를 반환하되 상태 조회성 API(참가자 목록 등)는 서킷 오픈 시 캐시된 최근 상태를 Redis에서 반환하는 폴백을 제공한다.",
+        "의존 서비스 및 외부 연동: 본 서비스는 MeetLink API(회의 생성/조회/종료, 참가자 관리, 녹화 다운로드 URL 발급을 제공하는 서드파티 화상회의 REST API)를 유일한 외부 연동 대상으로 하며, OAuth2 Client Credentials 방식으로 발급받은 서비스 계정 토큰을 사용해 인증한다. 내부적으로는 Board Service(카드-회의 연결 정보 동기화, 카드 삭제 시 회의 취소 이벤트 수신), Auth Service(참가자 초대 시 사용자 식별 및 권한 확인), AI Summary Service(녹화본 이관 완료 이벤트 발행 및 요약 결과 콜백 수신), Notification Service(회의 시작 임박 알림, 녹화 요약 완료 알림을 위한 ai-events/board-events 계열 토픽 발행)와 연동한다. AI Summary Service와의 연계는 동기 호출이 아닌 Kafka 이벤트 기반 비동기 연계로 설계하여, 녹화본 용량이 크고 처리 시간이 가변적인 요약 파이프라인의 지연이 본 서비스의 가용성에 영향을 주지 않도록 분리했다.",
+        "기술 스택 선정 이유: 애플리케이션은 Kotlin/Spring Boot 3 + Spring WebClient(비동기 논블로킹 HTTP 클라이언트)로 구현하여 MeetLink API 호출 시 스레드 점유를 최소화했다. 서드파티 API 장애를 흡수하기 위해 Resilience4j(Circuit Breaker, Retry, TimeLimiter)를 표준 적용했으며, 이는 회사 내 다른 외부 연동 서비스와 동일한 패턴을 재사용해 운영 노하우를 공유할 수 있게 했다. Webhook 원본 적재 및 회의 세션 메타데이터는 PostgreSQL에 저장해 ADR-04(단일 RDBMS 유지) 원칙을 따르며, 참가자 상태 등 조회 빈도가 높고 최신성이 중요한 데이터는 Redis에 TTL 기반으로 캐싱한다. 녹화본 이관과 AI Summary Service 연계는 Kafka(AWS MSK)를 통한 이벤트 발행 방식을 채택해 대용량 파일 처리로 인한 지연이 API 응답성에 영향을 주지 않도록 격리했으며, 녹화본 자체는 사내 표준 오브젝트 스토리지인 S3(전용 버킷, 수명주기 정책으로 90일 후 Glacier 이관)에 저장한다."
+      ],
+      "table": {
+        "headers": [
+          "Method",
+          "Path",
+          "설명"
+        ],
+        "rows": [
+          [
+            "POST",
+            "/api/v1/meetings",
+            "보드 카드에 연결된 화상회의 예약 생성 (MeetLink 회의방 생성 및 참가 URL 발급)"
+          ],
+          [
+            "GET",
+            "/api/v1/meetings/{meetingId}",
+            "회의 상세 정보 조회 (상태, 참가 URL, 참가자 목록, 녹화 여부)"
+          ],
+          [
+            "POST",
+            "/api/v1/meetings/{meetingId}/start",
+            "예약된 회의 즉시 시작 처리 및 상태를 in_progress로 전이"
+          ],
+          [
+            "POST",
+            "/api/v1/meetings/{meetingId}/end",
+            "진행중인 회의 종료 요청 (MeetLink API 호출 및 상태를 ended로 전이)"
+          ],
+          [
+            "DELETE",
+            "/api/v1/meetings/{meetingId}",
+            "예약된 회의 취소 (카드 삭제 연동 시 내부 호출 포함)"
+          ],
+          [
+            "GET",
+            "/api/v1/meetings/{meetingId}/recording",
+            "녹화본 처리 상태 및 사내 S3 이관 완료 후 다운로드 URL 조회"
+          ],
+          [
+            "POST",
+            "/webhooks/meetlink",
+            "MeetLink 발행 Webhook 수신 엔드포인트 (참가자 입퇴장, 녹화 완료, 회의 종료 등, HMAC 서명 검증)"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "5-8a. Video Conferencing Integration Service - DB 스키마",
+      "paragraphs": [],
+      "table": {
+        "headers": [
+          "테이블명",
+          "주요 컬럼",
+          "설명"
+        ],
+        "rows": [
+          [
+            "meeting_sessions",
+            "id, board_id, card_id, host_user_id, meetlink_room_id, join_url, status, scheduled_at, started_at, ended_at",
+            "카드에 연결된 화상회의 세션의 생명주기(예약~완료) 및 MeetLink 회의방 매핑 관리"
+          ],
+          [
+            "meeting_participants",
+            "id, meeting_id, user_id, joined_at, left_at, role",
+            "회의별 참가자 입장/퇴장 이력 및 역할(호스트/참가자) 기록"
+          ],
+          [
+            "meeting_recordings",
+            "id, meeting_id, meetlink_recording_id, s3_object_key, file_size_bytes, transfer_status, transfer_attempt_count, ai_event_published_at",
+            "MeetLink 원본 녹화본의 S3 이관 상태 및 AI Summary Service 이벤트 발행 여부 추적"
+          ],
+          [
+            "webhook_events",
+            "id, event_id(UNIQUE), event_type, payload(JSONB), signature_verified, processed, received_at, processed_at",
+            "MeetLink Webhook 원본 적재(write-ahead) 및 중복 수신 방지를 위한 멱등성 처리 기록"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "6. 런타임 뷰",
+      "paragraphs": [
+        "본 절은 네오보드 3.0의 주요 사용자 시나리오 6가지에 대해 서비스 간 호출 순서를 구체적으로 기술한다. 각 시나리오는 API Gateway를 공통 진입점으로 하며, 서비스 간 통신은 동기(REST/gRPC) 또는 비동기(Kafka 이벤트)로 구분하여 표기한다.",
+        "① 로그인 흐름: 1) 클라이언트가 API Gateway로 로그인 요청(이메일/비밀번호 또는 SSO 토큰)을 전송한다. 2) Gateway는 요청을 Auth/Identity Service로 라우팅한다. 3) Auth/Identity Service는 자격증명을 검증하고(SSO의 경우 외부 IdP와 SAML/OIDC 핸드셰이크 수행), 사용자의 워크스페이스별 권한 정보를 조회하기 위해 Workspace/Project Service에 동기 gRPC 호출을 수행한다. 4) 검증이 완료되면 Auth/Identity Service는 JWT 액세스 토큰과 리프레시 토큰을 발급하여 Redis에 세션 정보를 캐싱하고 클라이언트에 반환한다. 5) Auth/Identity Service는 '로그인 성공' 이벤트를 Kafka의 user-events 토픽에 발행하며, Notification Service가 이를 구독하여 이상 로그인 탐지 시 보안 알림을 발송한다. 6) 이후 클라이언트의 모든 요청은 JWT를 Authorization 헤더에 포함하며, API Gateway가 매 요청마다 서명을 검증한다.",
+        "② 문서 동시편집 흐름: 1) 클라이언트가 특정 문서를 열면 API Gateway를 거쳐 Document Collaboration Service에 WebSocket 연결을 수립한다. 2) 연결 시점에 JWT를 통해 Auth/Identity Service에 권한(해당 워크스페이스/문서 접근권한)을 검증 요청하고, Workspace/Project Service에 문서가 속한 프로젝트의 접근 정책을 조회한다. 3) 사용자가 문서를 편집하면 클라이언트는 CRDT 연산(delta)을 WebSocket을 통해 Document Collaboration Service로 전송한다. 4) 서비스는 서버 측 CRDT 문서 상태에 연산을 병합(merge)하고, 동일 문서에 연결된 다른 모든 클라이언트에게 변경사항을 브로드캐스트한다(목표 지연 200ms 이내). 5) 일정 주기 또는 세션 종료 시 병합된 문서 스냅샷을 PostgreSQL에 영속화하고 버전 이력을 기록한다. 6) 문서 변경 이벤트는 Kafka의 document-events 토픽에 발행되어 Search/Indexing Service가 구독, 검색 인덱스를 갱신하고 Notification Service가 구독자에게 변경 알림을 발송한다.",
+        "③ AI 요약 요청 흐름: 1) 클라이언트가 특정 회의록/문서에 대해 요약을 요청하면 API Gateway를 거쳐 AI Summary Service로 전달된다. 2) AI Summary Service는 Document Collaboration Service(또는 Workspace/Project Service)로부터 원문 콘텐츠를 조회한다. 3) 콘텐츠 길이/민감도에 따라 외부 LLM API(OpenAI 등) 또는 사내 자체 모델 중 하나로 라우팅하여 요약을 요청한다(외부 API 장애 시 서킷브레이커 동작, 자체 모델로 폴백하거나 캐시된 이전 요약 반환). 4) 요약 결과를 수신하면 자체 DB에 저장하고 클라이언트에 반환한다. 5) 요약 완료 이벤트를 Kafka의 ai-summary-events 토픽에 발행하여 Notification Service가 구독자에게 '요약 준비 완료' 알림을 발송하고, Search/Indexing Service가 요약본을 검색 대상에 추가한다. 6) 비용 관리를 위해 동일 문서/동일 버전에 대한 반복 요청은 Redis 캐시에서 즉시 응답한다.",
+        "④ 결제 흐름: 1) 워크스페이스 관리자가 요금제 변경/결제를 요청하면 API Gateway를 거쳐 Billing/Subscription Service로 전달된다. 2) Billing/Subscription Service는 Workspace/Project Service에 현재 워크스페이스의 사용자 수/사용량 정보를 조회하여 요금을 산정한다. 3) 산정된 금액으로 외부 PG사 API에 결제 요청을 전송하고, PG사의 승인 결과(웹훅 또는 동기 응답)를 수신한다. 4) 결제가 승인되면 인보이스를 생성하여 PostgreSQL에 저장하고, 구독 상태를 갱신한다. 5) '결제 완료' 이벤트를 Kafka의 billing-events 토픽에 발행하여 Notification Service가 결제 완료 이메일/인앱 알림을 발송하고, Auth/Identity Service가 구독하여 워크스페이스의 기능 권한(플랜별 기능 제한)을 갱신한다. 6) 결제 실패 시 재시도 정책에 따라 최대 3회 재시도 후 실패 처리하며, 워크스페이스 관리자에게 실패 알림을 발송한다.",
+        "⑤ 알림 발송 흐름: 1) 임의의 서비스(Workspace, Document, AI Summary, Billing 등)에서 도메인 이벤트가 발생하면 각 서비스는 해당 이벤트를 Kafka의 도메인별 토픽에 발행한다. 2) Notification Service는 모든 관련 토픽을 구독하는 컨슈머를 통해 이벤트를 수신한다. 3) 수신된 이벤트에 대해 사용자별 구독 설정(이메일/푸시/인앱 채널별 on-off)을 자체 DB에서 조회하여 발송 대상과 채널을 결정한다. 4) 이메일 채널은 외부 이메일 발송 대행 서비스 API로 위임하고, 푸시 채널은 FCM/APNs 등 푸시 게이트웨이로 위임하며, 인앱 알림은 자체 DB에 저장 후 클라이언트가 WebSocket 또는 폴링으로 수신한다. 5) 발송 실패 시 재시도 큐(Kafka 데드레터 토픽)에 적재하여 별도 배치로 재처리하며, 반복 실패 시 운영팀에 모니터링 경보를 발생시킨다.",
+        "⑥ 검색 흐름: 1) 클라이언트가 검색어를 입력하면 API Gateway를 거쳐 Search/Indexing Service로 요청이 전달된다. 2) Search/Indexing Service는 요청자의 JWT로부터 워크스페이스/권한 정보를 확인하고, 검색 결과가 사용자의 접근 권한 범위 내로 필터링되도록 Auth/Identity Service 및 Workspace/Project Service의 권한 정보를 참조한다(권한 캐시는 Redis에 유지되어 매 검색마다 재조회하지 않음). 3) 검색 인덱스(문서 콘텐츠, 태스크, AI 요약본 등)는 평상시 Document Collaboration Service, Workspace/Project Service, AI Summary Service가 각각 발행하는 Kafka 이벤트를 구독하여 사전에 색인화되어 있다. 4) 색인에서 검색어와 매칭되는 결과를 관련도 순으로 정렬하여 반환한다(목표 응답시간 P95 500ms 이내). 5) 검색 결과 클릭 로그는 별도로 수집되어 향후 검색 랭킹 개선에 활용된다."
+      ]
+    },
+    {
+      "heading": "7. 배포 뷰",
+      "paragraphs": [
+        "쿠버네티스 클러스터 구성: 네오보드 3.0은 AWS EKS 기반의 단일 프로덕션 클러스터를 서울 리전(ap-northeast-2)에 운영하며, 클러스터는 최소 3개 가용영역(AZ)에 걸쳐 노드 그룹을 분산 배치한다. 각 마이크로서비스는 독립된 네임스페이스 또는 레이블 기반으로 논리적으로 분리되며, Horizontal Pod Autoscaler(HPA)를 통해 CPU/메모리 사용률 및 커스텀 메트릭(예: Kafka 컨슈머 랙, WebSocket 연결 수)에 따라 자동 확장된다. Document Collaboration Service와 같이 트래픽 변동이 큰 서비스는 최소 3개, 최대 20개 파드로 확장 가능한 정책을 별도로 설정한다.",
+        "리전 전략: 현재는 서울 리전 단일 클러스터로 운영하며, 일본 시장 진출 계획에 맞추어 도쿄 리전(ap-northeast-1)에 2단계로 클러스터를 증설할 예정이다. 1단계는 도쿄 리전에 읽기 전용 레플리카와 CDN/정적 자산 캐시만 배치하는 Active-Passive 구조이며, 2단계는 사용자 데이터 로컬라이제이션 요구가 확정되는 시점에 도쿄 리전에도 완전한 서비스 스택을 배치하는 Active-Active 구조로 전환할 계획이다(9절 ADR-8 참조).",
+        "이중화: 핵심 서비스(Auth/Identity, Workspace/Project, Document Collaboration)는 각 서비스당 최소 3개 파드를 서로 다른 AZ에 분산 배치하여 단일 AZ 장애에도 서비스가 지속되도록 한다. PostgreSQL은 Multi-AZ RDS 구성(Primary-Standby 동기 복제)을 채택하여 Primary 장애 시 자동 페일오버(목표 RTO 60초 이내)를 지원하며, 읽기 부하 분산을 위한 Read Replica를 서비스별로 필요에 따라 추가한다. Redis는 클러스터 모드로 구성하여 노드 장애 시 자동 페일오버를 지원하고, Kafka는 최소 3개 브로커와 복제 팩터(replication factor) 3으로 구성하여 브로커 1대 장애까지 무중단 운영이 가능하도록 한다.",
+        "CI/CD 파이프라인: 각 마이크로서비스는 독립적인 GitLab CI(또는 GitHub Actions) 파이프라인을 가지며, 코드 커밋 시 (1) 단위/통합 테스트, (2) 정적 분석 및 보안 스캔, (3) 컨테이너 이미지 빌드 및 레지스트리 푸시, (4) 스테이징 환경 자동 배포, (5) 스테이징 검증 통과 후 프로덕션 카나리 배포(트래픽 10% → 점진 확대) 순으로 진행된다. 배포 전략은 서비스 특성에 따라 일반 서비스는 롤링 업데이트, 데이터 마이그레이션이 수반되는 배포는 블루-그린 배포를 선택적으로 적용한다.",
+        "관측성 및 운영: 모든 서비스는 표준화된 헬스체크(liveness/readiness probe) 엔드포인트를 제공하며, 중앙 로그 수집(예: ELK/OpenSearch 스택), 메트릭 수집(Prometheus/Grafana), 분산 추적(OpenTelemetry 기반)을 공통 사이드카 또는 라이브러리로 표준화하여 20명 규모 조직이 다수 서비스를 효율적으로 운영할 수 있도록 지원한다. 장애 발생 시 온콜 로테이션 정책에 따라 담당팀이 알림을 수신하고 대응한다."
+      ]
+    },
+    {
+      "heading": "8. 횡단 관심사",
+      "paragraphs": [
+        "인증/인가 공통방식: 모든 마이크로서비스는 Auth/Identity Service가 발급하는 OAuth2/JWT 기반 액세스 토큰을 공통 인증 수단으로 사용한다. API Gateway는 모든 인바운드 요청에 대해 JWT 서명과 만료시간을 우선 검증하며, 서비스별로 필요한 세부 권한(RBAC 역할, 워크스페이스별 접근범위)은 각 서비스가 JWT 클레임 또는 Auth/Identity Service와의 조회를 통해 판단한다. 서비스 간 내부 호출(gRPC)에도 서비스 계정 기반의 별도 내부 토큰을 적용하여 서비스 스푸핑을 방지한다. 리프레시 토큰 회전(rotation) 정책과 토큰 폐기(revocation) 목록은 Redis에 캐싱되어 빠른 검증을 지원한다.",
+        "로깅 표준: 모든 서비스는 JSON 구조화 로그 포맷을 공통으로 사용하며, 요청 단위로 부여되는 상관관계 ID(Correlation ID/Trace ID)를 API Gateway에서 생성하여 모든 하위 서비스 호출과 Kafka 이벤트에 전파함으로써 분산 환경에서의 요청 추적을 가능하게 한다. 로그 레벨은 ERROR/WARN/INFO/DEBUG 4단계로 표준화하고, 개인정보(이메일, 결제정보 등)는 마스킹 처리 후 로깅하는 것을 원칙으로 한다.",
+        "에러처리 표준: 모든 서비스의 API 응답은 공통 에러 응답 스키마(에러 코드, 메시지, 상관관계 ID, 발생 서비스명)를 따르며, HTTP 상태코드는 표준 시맨틱(4xx 클라이언트 오류, 5xx 서버 오류)을 준수한다. 서비스 간 동기 호출에는 타임아웃, 재시도(exponential backoff), 서킷브레이커 패턴을 공통 라이브러리로 표준화하여 특정 서비스의 장애가 연쇄적으로 전파되는 것을 방지한다. 외부 시스템(PG사, 이메일사, 화상회의사, LLM사) 연동 시에도 동일한 서킷브레이커 정책을 적용한다.",
+        "캐싱 전략: Redis를 공통 캐시 레이어로 사용하며, (1) 세션/토큰 캐싱(Auth/Identity Service), (2) 권한 조회 결과 캐싱(TTL 5분, Workspace/Search 서비스 공용), (3) AI 요약 결과 캐싱(동일 문서 버전에 대한 반복 요청 대응), (4) API Gateway 레벨의 Rate Limiting 카운터 저장 등 목적별로 구분하여 사용한다. 캐시 무효화는 Kafka 이벤트 기반으로 관련 데이터 변경 시 능동적으로 무효화하는 것을 원칙으로 한다.",
+        "Rate Limiting: API Gateway 레벨에서 사용자/워크스페이스/IP 단위의 토큰 버킷(Token Bucket) 기반 Rate Limiting을 적용하며, 요금제 등급(Billing/Subscription Service 연계)에 따라 차등 한도를 부여한다. 예를 들어 무료 플랜은 분당 60회, 엔터프라이즈 플랜은 분당 600회로 차등하며, 한도 초과 시 HTTP 429와 함께 재시도 가능 시간을 응답 헤더로 제공한다. 외부 LLM API 등 비용이 발생하는 연동에는 서비스 내부적으로 추가적인 사용량 기반 Rate Limiting을 이중으로 적용한다.",
+        "국제화 및 데이터 지역화: 향후 도쿄 리전 확장을 대비하여 모든 서비스는 다국어 메시지 리소스 분리, UTC 기준 시간 저장 후 클라이언트 타임존 변환 방식을 공통 원칙으로 채택하며, 데이터 지역화가 필요한 고객사를 위해 리전별 데이터 파티셔닝이 가능한 스키마 설계를 지향한다."
+      ]
+    },
+    {
+      "heading": "9. 아키텍처 결정",
+      "paragraphs": [
+        "ADR-1. 모놀리식에서 마이크로서비스 아키텍처로 전환. 배경: 네오보드 2.x는 단일 배포 단위의 모놀리식 구조로, 문서 공동편집 기능의 트래픽 급증이 로그인/워크스페이스 등 무관한 기능의 성능까지 저하시키는 문제가 반복적으로 발생했다. 대안: (a) 모놀리식 유지 후 수직 확장, (b) 모듈러 모놀리스로 리팩터링, (c) 도메인별 마이크로서비스 분리. 선택근거: 3.0에서 예상되는 AI 요약, 화상회의 등 신규 기능의 독립적 확장 필요성과 팀별 독립 배포 요구를 고려하여 (c) 마이크로서비스 분리를 채택하되, 20명 조직 규모를 감안해 서비스 수를 8개로 제한하였다.",
+        "ADR-2. 백엔드 언어/프레임워크로 Kotlin/Spring Boot 채택. 배경: 기존 팀 대부분이 Java/Spring 경험을 보유하고 있었다. 대안: (a) Java/Spring Boot 유지, (b) Node.js/NestJS, (c) Go, (d) Kotlin/Spring Boot. 선택근거: Kotlin은 JVM 생태계와 Spring Boot 자산을 그대로 활용하면서도 null 안정성, 간결한 문법으로 생산성을 높일 수 있어, 학습곡선을 최소화하면서 코드 품질을 개선할 수 있는 (d)를 채택하였다.",
+        "ADR-3. 주 데이터저장소로 PostgreSQL 채택(NoSQL 대비). 배경: 워크스페이스, 결제, 인증 등 다수 도메인에서 강한 정합성과 트랜잭션이 요구된다. 대안: (a) PostgreSQL, (b) MongoDB 등 문서형 NoSQL, (c) DynamoDB 등 관리형 NoSQL. 선택근거: 결제/인증 도메인의 ACID 트랜잭션 요구와 팀의 관계형 DB 운영 경험을 고려해 (a) PostgreSQL을 Database-per-Service 패턴으로 채택하였으며, 문서 콘텐츠와 같이 비정형 데이터가 많은 영역은 PostgreSQL의 JSONB 컬럼으로 우선 대응하고 향후 필요 시 서비스 단위로 NoSQL 도입을 재검토하기로 하였다.",
+        "ADR-4. 비동기 메시징으로 Kafka 도입. 배경: 서비스 수 증가에 따라 동기 호출만으로는 서비스 간 결합도가 과도하게 높아지는 문제가 예상되었다. 대안: (a) RabbitMQ, (b) AWS SQS/SNS, (c) Kafka. 선택근거: 이벤트 재처리(replay), 다수 컨슈머의 동일 이벤트 구독(알림, 검색 인덱싱 등 복수 서비스가 동일 이벤트를 필요로 함), 높은 처리량 요구를 고려해 (c) Kafka를 채택하였다. 운영 복잡도 증가는 표준화된 컨슈머/프로듀서 라이브러리 제공으로 완화하기로 하였다(11절 리스크 참조).",
+        "ADR-5. 실시간 공동편집 알고리즘으로 CRDT 채택(OT 대비). 배경: Document Collaboration Service는 다중 사용자의 동시 편집 및 오프라인 편집 후 재접속 시 병합을 지원해야 한다. 대안: (a) OT(Operational Transformation), (b) CRDT(Conflict-free Replicated Data Type). 선택근거: OT는 중앙 서버의 변환 로직에 의존하여 서버 장애 시 정합성 문제가 발생할 수 있는 반면, CRDT는 수학적으로 병합 순서에 무관하게 동일한 결과로 수렴함이 보장되어 오프라인 편집 지원과 서버 부하 분산에 유리하므로 (b)를 채택하였다.",
+        "ADR-6. 컨테이너 오케스트레이션으로 Kubernetes(EKS) 채택. 배경: 8개 서비스를 독립적으로 배포/확장하면서도 표준화된 운영 방식을 유지해야 한다. 대안: (a) AWS ECS, (b) HashiCorp Nomad, (c) Kubernetes(EKS). 선택근거: 향후 멀티리전(도쿄) 확장 시 클라우드 벤더 종속을 낮추고, 풍부한 오픈소스 생태계(Helm, Prometheus Operator 등)를 활용할 수 있는 (c)를 채택하였다. 관리형 서비스(EKS)를 사용하여 컨트롤 플레인 운영 부담은 최소화하였다.",
+        "ADR-7. API Gateway 패턴 도입. 배경: 8개 서비스 각각이 인증 검증, Rate Limiting, CORS 등 공통 로직을 중복 구현할 경우 유지보수 비용이 크게 증가한다. 대안: (a) 클라이언트가 각 서비스에 직접 접근, (b) 서비스별 BFF(Backend for Frontend)만 도입, (c) 단일 API Gateway 도입. 선택근거: 공통 횡단 관심사(인증, Rate Limiting, 라우팅)를 일원화하고 클라이언트의 서비스 토폴로지 은닉이 가능한 (c)를 채택하되, 필요 시 특정 클라이언트(모바일 등) 전용 BFF를 Gateway 하위에 추가하는 것을 허용하기로 하였다.",
+        "ADR-8. 멀티리전 전략: 서울 우선 배포 후 도쿄 리전 단계적 확장. 배경: 일본 시장 진출 계획이 존재하나 구체적 출시 시점과 데이터 지역화 규제 요구사항이 아직 확정되지 않았다. 대안: (a) 처음부터 Active-Active 멀티리전 구축, (b) 서울 단일 리전 운영 후 필요 시점에 확장, (c) 서울 운영 중 도쿄 리전을 Active-Passive로 우선 준비 후 단계적으로 Active-Active 전환. 선택근거: 초기부터 멀티리전을 구축할 경우 데이터 정합성/지연 문제로 개발 복잡도가 과도하게 증가하므로, 우선 (c) 방식으로 도쿄 리전에 읽기 전용/캐시 인프라만 준비하고, 실제 일본 고객 확보 및 규제 요구가 확정되는 시점에 Active-Active로 전환하는 점진적 전략을 채택하였다."
+      ]
+    },
+    {
+      "heading": "10. 품질 요구사항",
+      "paragraphs": [
+        "본 절은 1절에서 제시한 품질목표를 구체적으로 측정 가능한 시나리오와 목표 수치로 세분화한다. 각 시나리오는 자극(Stimulus)-환경(Environment)-응답(Response)-측정기준(Measure) 형식으로 기술하며, 8개 마이크로서비스 전반에 공통 적용되는 기준선(baseline)으로 활용된다."
+      ],
+      "table": {
+        "headers": [
+          "분류",
+          "시나리오",
+          "목표 수치"
+        ],
+        "rows": [
+          [
+            "성능",
+            "일반 API 요청(로그인, 워크스페이스 조회 등) 응답 시간",
+            "P95 300ms 이하, P99 800ms 이하"
+          ],
+          [
+            "성능",
+            "문서 공동편집 변경사항 전파 지연",
+            "동시 편집자 간 200ms 이내 동기화"
+          ],
+          [
+            "성능",
+            "전문검색 응답 시간",
+            "P95 500ms 이하 (색인 규모 100만 문서 기준)"
+          ],
+          [
+            "성능",
+            "AI 요약 생성 완료 시간",
+            "A4 5페이지 분량 기준 평균 10초 이내"
+          ],
+          [
+            "가용성",
+            "핵심 서비스(Auth, Workspace, Document) 월간 가동률",
+            "99.9% 이상 (월 43.2분 이내 다운타임)"
+          ],
+          [
+            "가용성",
+            "부가 서비스(AI Summary, Video, Search) 월간 가동률",
+            "99.5% 이상"
+          ],
+          [
+            "가용성",
+            "PostgreSQL Primary 장애 시 자동 페일오버 시간(RTO)",
+            "60초 이내"
+          ],
+          [
+            "가용성",
+            "데이터 손실 허용 범위(RPO)",
+            "5분 이내 (동기 복제 기준)"
+          ],
+          [
+            "보안",
+            "인증 토큰 만료 및 갱신 정책",
+            "액세스 토큰 30분, 리프레시 토큰 14일, 회전 정책 적용"
+          ],
+          [
+            "보안",
+            "결제 정보 처리",
+            "카드정보 자체 미저장, PCI-DSS 준수 PG사 위탁"
+          ],
+          [
+            "확장성",
+            "동시 접속(WebSocket) 처리량",
+            "단일 문서 최대 100명 동시 편집, 전체 시스템 10만 동시접속 목표"
+          ],
+          [
+            "확장성",
+            "트래픽 급증 시 오토스케일링 반응 시간",
+            "부하 감지 후 신규 파드 기동까지 90초 이내"
+          ],
+          [
+            "Rate Limiting",
+            "무료/엔터프라이즈 플랜별 API 호출 한도",
+            "무료 60회/분, 엔터프라이즈 600회/분"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "11. 리스크 및 기술부채",
+      "paragraphs": [],
+      "table": {
+        "headers": [
+          "번호",
+          "리스크",
+          "영향도",
+          "대응방안"
+        ],
+        "rows": [
+          [
+            "R-1",
+            "서비스 간 분산 트랜잭션에 따른 데이터 정합성 저하(예: 결제 완료 후 권한 갱신 누락)",
+            "높음",
+            "Saga 패턴 도입, 이벤트 재처리(replay) 및 보상 트랜잭션 구현, 정합성 모니터링 대시보드 구축"
+          ],
+          [
+            "R-2",
+            "CRDT 기반 실시간 편집 시 대용량 문서에서 연산 이력 누적으로 인한 성능 저하",
+            "중간",
+            "주기적 스냅샷 생성 및 GC(가비지 컬렉션), 문서 크기 임계치 초과 시 분할 편집 UX 검토"
+          ],
+          [
+            "R-3",
+            "AI Summary Service의 외부 LLM API(OpenAI 등) 의존성에 따른 비용 급증 및 응답 지연 리스크",
+            "높음",
+            "자체 파인튜닝 모델 병행 개발(PRJ-2026-05), 요약 결과 캐싱, 사용량 기반 Rate Limiting 및 예산 알람 설정"
+          ],
+          [
+            "R-4",
+            "Kafka 클러스터 운영 지식이 플랫폼팀에 편중되어 있어 장애 시 대응 인력 부족",
+            "중간",
+            "운영 매뉴얼 문서화, 팀 간 온콜 로테이션 도입, 정기적 장애 대응 훈련(게임데이) 실시"
+          ],
+          [
+            "R-5",
+            "20명 소규모 조직 대비 8개 마이크로서비스 운영으로 인한 전반적 운영 복잡도 증가",
+            "높음",
+            "서비스 템플릿 표준화, 공통 관측성/CI-CD 도구 자동화, 서비스 신규 추가 시 거버넌스 승인 절차 강화"
+          ],
+          [
+            "R-6",
+            "결제(Billing) 서비스의 단일 PG사 의존으로 인한 PG 장애 시 매출 직접 영향",
+            "높음",
+            "보조 PG사 이중 연동 구조 설계, 서킷브레이커 및 자동 페일오버, 결제 재시도 큐 운영"
+          ],
+          [
+            "R-7",
+            "Auth/Identity Service 장애 시 전체 시스템 로그인 불가로 인한 단일 장애점(SPOF) 리스크",
+            "높음",
+            "다중 AZ 이중화 배포, 이미 발급된 토큰의 Redis 캐시 기반 오프라인 검증으로 일부 기능 지속 가능하도록 설계"
+          ],
+          [
+            "R-8",
+            "네오보드 2.x 모놀리식 잔재 모듈이 일부 신규 서비스와 임시로 연동되어 있는 기술부채",
+            "중간",
+            "스트랭글러 패턴 기반 단계적 마이그레이션 로드맵 수립, 분기별 레거시 모듈 축소 목표 설정 및 추적"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "12. 용어집",
+      "paragraphs": [
+        "CRDT (Conflict-free Replicated Data Type): 여러 복제본이 임의의 순서로 병합되어도 수학적으로 동일한 최종 상태로 수렴함이 보장되는 분산 데이터 구조. Document Collaboration Service의 실시간 공동편집 엔진의 핵심 알고리즘으로 채택되었다.",
+        "OT (Operational Transformation): 동시 편집 시 연산의 순서를 서버가 중재하여 변환함으로써 정합성을 유지하는 전통적 공동편집 알고리즘. 본 프로젝트에서는 CRDT 대비 대안으로 검토 후 채택하지 않았다(ADR-5 참조).",
+        "SSO (Single Sign-On): 하나의 인증으로 여러 연계 시스템에 접근할 수 있게 하는 인증 방식으로, Auth/Identity Service가 외부 IdP(SAML/OIDC)와 연동하여 지원한다.",
+        "JWT (JSON Web Token): 사용자 인증 정보를 서명된 JSON 형태로 담아 서비스 간 전달하는 토큰 표준. 네오보드 전 서비스의 공통 인증 수단이다.",
+        "OAuth2: 토큰 기반 인가(authorization) 프레임워크로, JWT 발급 및 SSO 연동의 기반 프로토콜로 사용된다.",
+        "Saga 패턴: 여러 서비스에 걸친 분산 트랜잭션을 각 서비스의 로컬 트랜잭션과 보상(compensating) 트랜잭션의 조합으로 처리하는 패턴. 결제-권한갱신 등 다단계 흐름의 정합성 확보에 사용된다.",
+        "API Gateway: 클라이언트 요청의 단일 진입점으로, 인증 검증·라우팅·Rate Limiting 등 횡단 관심사를 처리하는 컴포넌트.",
+        "BFF (Backend for Frontend): 특정 클라이언트(웹, 모바일 등) 전용으로 최적화된 백엔드 계층. API Gateway 하위에 필요 시 도입 가능한 보조 패턴.",
+        "EKS (Elastic Kubernetes Service): AWS의 관리형 쿠버네티스 서비스로, 네오보드 3.0의 컨테이너 오케스트레이션 인프라로 채택되었다.",
+        "RTO (Recovery Time Objective): 장애 발생 후 서비스가 복구되기까지 허용 가능한 최대 시간. PostgreSQL 페일오버 목표는 60초 이내이다.",
+        "RPO (Recovery Point Objective): 장애 시 허용 가능한 최대 데이터 손실 범위. 동기 복제 기준 5분 이내로 설정되었다.",
+        "Kafka Topic/Partition: Kafka에서 이벤트가 발행/구독되는 논리적 채널(Topic)과 그 병렬 처리 단위(Partition). 서비스 간 비동기 이벤트 통신의 기본 단위이다.",
+        "서킷브레이커 (Circuit Breaker): 반복적으로 실패하는 외부/내부 호출을 일시적으로 차단하여 장애 전파를 막는 패턴. 외부 PG사, LLM API 등 연동에 표준 적용된다.",
+        "Rate Limiting: 단위 시간당 요청 횟수를 제한하여 시스템 과부하와 남용을 방지하는 기법. API Gateway에서 요금제별로 차등 적용된다.",
+        "멀티테넌시 (Multi-tenancy): 하나의 시스템 인스턴스가 여러 고객사(워크스페이스)의 데이터를 논리적으로 격리하여 서비스하는 방식.",
+        "워크스페이스 (Workspace): 네오보드에서 하나의 고객사 또는 조직 단위를 나타내는 최상위 협업 공간 단위.",
+        "Idempotency Key: 동일 요청이 중복 전송되어도 동일한 결과를 보장하기 위해 클라이언트가 부여하는 고유 키. 결제 요청 등 중요 트랜잭션에 사용된다.",
+        "Active-Active / Active-Passive: 멀티리전 운영 방식으로, Active-Active는 두 리전 모두 트래픽을 동시 처리하고 Active-Passive는 한 리전만 처리하고 다른 리전은 대기 상태로 유지한다.",
+        "카나리 배포 (Canary Deployment): 신규 버전을 일부 트래픽에만 우선 노출하여 안정성을 검증한 뒤 점진적으로 확대 배포하는 전략.",
+        "블루-그린 배포 (Blue-Green Deployment): 기존(Blue) 환경과 신규(Green) 환경을 동시에 운영하다가 트래픽을 일시에 전환하는 무중단 배포 전략. 데이터 마이그레이션이 수반되는 배포에 활용된다."
+      ]
+    }
+  ]
+}

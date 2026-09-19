@@ -1,0 +1,39 @@
+{
+  "sections": [
+    {
+      "heading": "5-8. Video Conferencing Integration Service",
+      "paragraphs": [
+        "Video Conferencing Integration Service는 네오보드 사용자가 보드 내에서 화상회의를 예약·시작·종료할 수 있도록 외부 서드파티 화상회의 서비스(가칭 'MeetLink API')와 연동하는 게이트웨이 컴포넌트다. 핵심 책임은 (1) MeetLink API 호출을 캡슐화한 연동 게이트웨이 제공, (2) 보드/카드에 연결된 회의 예약·시작·종료 상태 관리, (3) 회의 녹화본 저장 완료 이벤트 수신 및 AI Summary Service로의 전달, (4) MeetLink에서 발생하는 Webhook(참가자 입장/퇴장, 녹화 완료, 회의 종료 등) 수신 및 내부 이벤트 변환이 그것이다. 백엔드팀 산하 협업 플랫폼 파트가 오너십을 갖는 모듈로, Kotlin/Spring Boot 기반 독립 배포 서비스로 운영되며 EKS 클러스터 내 별도 네임스페이스에서 구동된다.",
+        "회의 생명주기는 예약(scheduled) → 진행중(in_progress) → 종료(ended) → 녹화 처리중(recording_processing) → 완료(completed) 5단계로 관리되며, 각 상태 전이는 내부 API 호출 또는 MeetLink Webhook 수신을 트리거로 하여 meeting_sessions 테이블에 반영된다. 보드 카드에서 '화상회의 시작'을 클릭하면 본 서비스가 MeetLink API를 호출해 회의방을 생성하고 참가 URL을 발급하며, 발급된 URL과 회의 메타데이터는 Board Service의 카드 상세 영역에 노출된다. 회의가 종료되고 녹화본이 MeetLink 측 스토리지에 업로드 완료되면 recording.completed Webhook이 수신되고, 본 서비스는 해당 녹화 파일을 사내 오브젝트 스토리지(S3)로 복사(server-side copy)한 뒤 meeting-recording-events Kafka 토픽에 이벤트를 발행하여 AI Summary Service가 STT·요약 파이프라인을 시작하도록 한다. 이 과정에서 원본 녹화본은 MeetLink 측에 정책상 7일간만 보관되므로, S3 이관 실패 시 최대 3회 재시도 후 알림을 발송하는 안전장치를 두었다.",
+        "Webhook 수신 처리는 MeetLink가 제공하는 HMAC-SHA256 서명 검증을 모든 요청에 적용하여 위조 요청을 차단하며, 처리 순서 보장을 위해 event_id + received_at 기준으로 webhook_events 테이블에 우선 원본을 적재한 뒤 비동기 워커가 순차 처리하는 write-ahead 방식을 채택했다. 동일 이벤트가 중복 전송되는 MeetLink 특성(at-least-once delivery)을 고려하여 event_id 기준 UNIQUE 제약과 애플리케이션 레벨 멱등성 체크를 병행한다. 외부 API 장애 대응을 위해 MeetLink API 클라이언트는 Resilience4j Circuit Breaker를 적용했으며, 회의 생성 실패 시 사용자에게는 즉시 오류를 반환하되 상태 조회성 API(참가자 목록 등)는 서킷 오픈 시 캐시된 최근 상태를 Redis에서 반환하는 폴백을 제공한다.",
+        "의존 서비스 및 외부 연동: 본 서비스는 MeetLink API(회의 생성/조회/종료, 참가자 관리, 녹화 다운로드 URL 발급을 제공하는 서드파티 화상회의 REST API)를 유일한 외부 연동 대상으로 하며, OAuth2 Client Credentials 방식으로 발급받은 서비스 계정 토큰을 사용해 인증한다. 내부적으로는 Board Service(카드-회의 연결 정보 동기화, 카드 삭제 시 회의 취소 이벤트 수신), Auth Service(참가자 초대 시 사용자 식별 및 권한 확인), AI Summary Service(녹화본 이관 완료 이벤트 발행 및 요약 결과 콜백 수신), Notification Service(회의 시작 임박 알림, 녹화 요약 완료 알림을 위한 ai-events/board-events 계열 토픽 발행)와 연동한다. AI Summary Service와의 연계는 동기 호출이 아닌 Kafka 이벤트 기반 비동기 연계로 설계하여, 녹화본 용량이 크고 처리 시간이 가변적인 요약 파이프라인의 지연이 본 서비스의 가용성에 영향을 주지 않도록 분리했다.",
+        "기술 스택 선정 이유: 애플리케이션은 Kotlin/Spring Boot 3 + Spring WebClient(비동기 논블로킹 HTTP 클라이언트)로 구현하여 MeetLink API 호출 시 스레드 점유를 최소화했다. 서드파티 API 장애를 흡수하기 위해 Resilience4j(Circuit Breaker, Retry, TimeLimiter)를 표준 적용했으며, 이는 회사 내 다른 외부 연동 서비스와 동일한 패턴을 재사용해 운영 노하우를 공유할 수 있게 했다. Webhook 원본 적재 및 회의 세션 메타데이터는 PostgreSQL에 저장해 ADR-04(단일 RDBMS 유지) 원칙을 따르며, 참가자 상태 등 조회 빈도가 높고 최신성이 중요한 데이터는 Redis에 TTL 기반으로 캐싱한다. 녹화본 이관과 AI Summary Service 연계는 Kafka(AWS MSK)를 통한 이벤트 발행 방식을 채택해 대용량 파일 처리로 인한 지연이 API 응답성에 영향을 주지 않도록 격리했으며, 녹화본 자체는 사내 표준 오브젝트 스토리지인 S3(전용 버킷, 수명주기 정책으로 90일 후 Glacier 이관)에 저장한다."
+      ],
+      "table": {
+        "headers": ["Method", "Path", "설명"],
+        "rows": [
+          ["POST", "/api/v1/meetings", "보드 카드에 연결된 화상회의 예약 생성 (MeetLink 회의방 생성 및 참가 URL 발급)"],
+          ["GET", "/api/v1/meetings/{meetingId}", "회의 상세 정보 조회 (상태, 참가 URL, 참가자 목록, 녹화 여부)"],
+          ["POST", "/api/v1/meetings/{meetingId}/start", "예약된 회의 즉시 시작 처리 및 상태를 in_progress로 전이"],
+          ["POST", "/api/v1/meetings/{meetingId}/end", "진행중인 회의 종료 요청 (MeetLink API 호출 및 상태를 ended로 전이)"],
+          ["DELETE", "/api/v1/meetings/{meetingId}", "예약된 회의 취소 (카드 삭제 연동 시 내부 호출 포함)"],
+          ["GET", "/api/v1/meetings/{meetingId}/recording", "녹화본 처리 상태 및 사내 S3 이관 완료 후 다운로드 URL 조회"],
+          ["POST", "/webhooks/meetlink", "MeetLink 발행 Webhook 수신 엔드포인트 (참가자 입퇴장, 녹화 완료, 회의 종료 등, HMAC 서명 검증)"]
+        ]
+      }
+    },
+    {
+      "heading": "5-8a. Video Conferencing Integration Service - DB 스키마",
+      "paragraphs": [],
+      "table": {
+        "headers": ["테이블명", "주요 컬럼", "설명"],
+        "rows": [
+          ["meeting_sessions", "id, board_id, card_id, host_user_id, meetlink_room_id, join_url, status, scheduled_at, started_at, ended_at", "카드에 연결된 화상회의 세션의 생명주기(예약~완료) 및 MeetLink 회의방 매핑 관리"],
+          ["meeting_participants", "id, meeting_id, user_id, joined_at, left_at, role", "회의별 참가자 입장/퇴장 이력 및 역할(호스트/참가자) 기록"],
+          ["meeting_recordings", "id, meeting_id, meetlink_recording_id, s3_object_key, file_size_bytes, transfer_status, transfer_attempt_count, ai_event_published_at", "MeetLink 원본 녹화본의 S3 이관 상태 및 AI Summary Service 이벤트 발행 여부 추적"],
+          ["webhook_events", "id, event_id(UNIQUE), event_type, payload(JSONB), signature_verified, processed, received_at, processed_at", "MeetLink Webhook 원본 적재(write-ahead) 및 중복 수신 방지를 위한 멱등성 처리 기록"]
+        ]
+      }
+    }
+  ]
+}

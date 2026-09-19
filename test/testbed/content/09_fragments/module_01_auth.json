@@ -1,0 +1,46 @@
+{
+  "sections": [
+    {
+      "heading": "5-1. Auth/Identity Service",
+      "paragraphs": [
+        "Auth/Identity Service는 네오보드(NeoBoard) 플랫폼 전반의 인증(Authentication)과 인가(Authorization)를 전담하는 마이크로서비스로, 사용자 로그인/로그아웃, 세션 및 토큰 수명주기 관리, 그리고 SSO(Single Sign-On) 연동을 담당한다. 사용자는 이메일/비밀번호 기반의 자체 계정(Local Account) 또는 구글 워크스페이스, 마이크로소프트 Entra ID(Azure AD)와 연동된 OAuth 2.0 / OIDC 기반 SSO 계정으로 로그인할 수 있으며, 인증에 성공하면 본 서비스가 JWT 액세스 토큰(만료 15분)과 리프레시 토큰(만료 14일, Redis 저장)을 발급한다. 다른 7개 마이크로서비스(워크스페이스, 보드/카드, 실시간 협업, 파일, 알림, 검색, 결제/구독)는 게이트웨이를 통과한 JWT를 자체 검증하거나, 필요 시 본 서비스가 제공하는 JWKS(JSON Web Key Set) 엔드포인트를 통해 공개키를 캐싱하여 토큰 서명을 검증한다.",
+        "두 번째 핵심 책임은 RBAC(Role-Based Access Control) 기반 권한 관리다. 네오보드는 조직(Organization) 단위로 계정을 관리하며, 조직 내 사용자는 Owner/Admin/Member/Guest 4단계 기본 역할과 워크스페이스별 커스텀 역할을 가질 수 있다. 본 서비스는 역할-권한 매핑을 관리하고, 액세스 토큰 발급 시 사용자의 조직/역할/권한 클레임(claim)을 JWT 페이로드에 포함시켜 다운스트림 서비스가 별도의 조회 없이도 인가 판단을 내릴 수 있도록 지원한다. 권한 변경이 발생하면 Kafka 이벤트(`auth.role.updated`)를 발행하여 관련 서비스의 캐시를 무효화하고, 다음 토큰 갱신 시점에 최신 권한이 반영되도록 한다.",
+        "세 번째로, 계정 보안 정책(비밀번호 정책, MFA, 이상 로그인 탐지)을 총괄한다. 비밀번호는 최소 10자 이상, 영문 대/소문자·숫자·특수문자 조합을 강제하며 bcrypt(cost factor 12)로 해싱하여 저장한다. 조직 관리자는 조직 단위로 MFA(TOTP 기반 OTP 앱, 추후 WebAuthn/FIDO2 확장 예정)를 필수화할 수 있으며, 로그인 시 IP 대역·디바이스 지문(fingerprint) 변화를 감지해 의심스러운 로그인 시 이메일 알림 및 추가 인증을 요구한다. 모든 로그인/로그아웃/토큰 갱신/권한 변경 이벤트는 감사 로그(audit log)로 별도 적재되어 규정 준수 및 보안 사고 조사에 활용된다.",
+        "본 서비스는 API Gateway(Spring Cloud Gateway) 뒤에 위치하며, 모든 인바운드 요청의 첫 관문 역할을 겸한다. Notification Service와는 Kafka를 통해 비동기로 연동되어 MFA 코드 발송, 이상 로그인 알림, 비밀번호 재설정 이메일 발송을 위임한다. Workspace/Organization Service와는 동기(REST) 호출로 연동하여 신규 가입 시 조직 프로비저닝을 트리거하고, 조직 삭제/정지 이벤트를 구독하여 해당 조직 사용자의 세션을 일괄 무효화한다. 외부 연동으로는 Google Identity Platform(OAuth 2.0/OIDC), Microsoft Identity Platform(Entra ID, OIDC)과 표준 Authorization Code Flow(PKCE 적용)로 연동하며, 발신 이메일은 AWS SES를 경유한다.",
+        "기술스택은 Kotlin/Spring Boot(Spring Security, Spring Authorization Server 커스터마이징) 기반으로 구현하여 사내 표준 스택과의 일관성 및 팀의 축적된 운영 노하우를 최대한 활용한다. 토큰 서명은 RS256(비대칭키) 방식을 채택해 개인키는 본 서비스만 보유하고 다른 서비스는 공개키(JWKS)만으로 검증하도록 하여 키 유출 범위를 최소화했다. 세션/리프레시 토큰 및 로그인 시도 횟수 제한(rate limiting)은 지연시간이 낮고 TTL 관리가 용이한 Redis(ElastiCache)에 저장하며, 사용자/역할/권한 등 정합성이 중요한 데이터는 PostgreSQL(RDS Multi-AZ)에 트랜잭션으로 관리한다. 권한 변경 등 도메인 이벤트 전파에는 Kafka를 사용해 다운스트림 서비스와 느슨하게 결합시켰고, 전체 워크로드는 EKS 위에서 HPA(Horizontal Pod Autoscaler)로 로그인 트래픽 피크(업무 시작 시간대)에 대응하도록 구성했다."
+      ],
+      "table": {
+        "headers": ["Method", "Path", "설명", "요청/응답 요약"],
+        "rows": [
+          ["POST", "/auth/signup", "이메일/비밀번호 기반 신규 계정 생성", "요청: email, password, orgName / 응답: userId, orgId, 인증 메일 발송 여부"],
+          ["POST", "/auth/login", "로컬 계정 로그인", "요청: email, password / 응답: accessToken, refreshToken, mfaRequired(bool)"],
+          ["POST", "/auth/logout", "로그아웃 및 리프레시 토큰 폐기", "요청: refreshToken(쿠키/헤더) / 응답: 204 No Content"],
+          ["POST", "/auth/token/refresh", "액세스 토큰 재발급", "요청: refreshToken / 응답: 신규 accessToken, refreshToken(로테이션)"],
+          ["GET", "/auth/oauth2/{provider}/authorize", "구글/MS SSO 인증 시작(리다이렉트)", "path: provider=google|microsoft / 응답: 302 Redirect to IdP"],
+          ["GET", "/auth/oauth2/{provider}/callback", "SSO 콜백 처리 및 토큰 발급", "쿼리: code, state / 응답: accessToken, refreshToken, 신규가입 여부"],
+          ["POST", "/auth/mfa/verify", "MFA(OTP) 코드 검증", "요청: mfaToken, otpCode / 응답: accessToken, refreshToken"],
+          ["GET", "/auth/.well-known/jwks.json", "JWT 서명 검증용 공개키 목록 제공", "요청 없음 / 응답: JWKS(JSON Web Key Set)"],
+          ["GET", "/rbac/users/{userId}/roles", "사용자의 조직/워크스페이스 역할·권한 조회", "path: userId / 응답: roles[], permissions[]"]
+        ]
+      }
+    },
+    {
+      "heading": "5-1a. Auth/Identity Service - DB 스키마",
+      "paragraphs": [
+        "Auth/Identity Service는 전용 PostgreSQL 스키마(auth_db)를 소유하며, 다른 서비스는 이 스키마에 직접 접근하지 않고 반드시 API 또는 Kafka 이벤트를 통해서만 데이터를 참조한다(Database-per-Service 원칙). 아래는 핵심 테이블 구조이며, 모든 테이블은 created_at/updated_at 감사 컬럼을 공통으로 포함한다."
+      ],
+      "table": {
+        "headers": ["테이블명", "주요 컬럼", "설명"],
+        "rows": [
+          ["users", "id(PK, UUID), org_id(FK), email(UNIQUE), password_hash, status(ACTIVE/SUSPENDED/DELETED), mfa_enabled(bool), last_login_at", "사용자 계정의 핵심 정보를 저장. password_hash는 로컬 계정에만 존재하며 SSO 전용 계정은 NULL"],
+          ["identity_providers", "id(PK), user_id(FK), provider(GOOGLE/MICROSOFT), provider_uid, provider_email, linked_at", "사용자별 연동된 외부 SSO 자격증명 매핑. 한 사용자가 복수 IdP를 연결 가능"],
+          ["roles / permissions", "roles: id(PK), org_id(FK), name, is_custom(bool) / permissions: id(PK), code(UNIQUE), description", "조직 단위 역할 정의와 역할이 가질 수 있는 세분화된 권한 코드(예: board.write, member.invite) 목록"],
+          ["user_roles / role_permissions", "user_roles: user_id(FK), role_id(FK), workspace_id(nullable) / role_permissions: role_id(FK), permission_id(FK)", "사용자-역할, 역할-권한 간 다대다 매핑 테이블. workspace_id가 NULL이면 조직 전체 적용"],
+          ["refresh_tokens", "token_id(PK, UUID), user_id(FK), issued_at, expires_at, device_fingerprint, revoked(bool)", "리프레시 토큰 메타데이터. 실제 토큰 검증/조회 성능을 위해 Redis에도 미러링하여 캐싱"],
+          ["mfa_devices", "id(PK), user_id(FK), type(TOTP/WEBAUTHN), secret_encrypted, verified_at, is_primary(bool)", "사용자별 등록된 MFA 인증 수단. secret은 KMS 키로 암호화하여 저장"],
+          ["audit_logs", "id(PK), user_id(FK, nullable), org_id, event_type(LOGIN/LOGOUT/ROLE_CHANGE 등), ip_address, occurred_at", "로그인/권한변경 등 보안 감사 이벤트 이력. 90일 후 Cold Storage(S3)로 아카이빙"]
+        ]
+      }
+    }
+  ]
+}
