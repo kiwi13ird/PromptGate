@@ -1,0 +1,41 @@
+{
+  "sections": [
+    {
+      "heading": "5-5. AI Summary Service",
+      "paragraphs": [
+        "AI Summary Service는 네오보드 내에서 생성되는 회의록, 첨부 문서, 채팅 스레드를 자동으로 요약하고 그로부터 실행항목(Action Item)을 추출하여 담당자를 배정하는 AI 전담 컴포넌트다. 핵심 책임은 (1) 회의록/문서/채팅 자동 요약 생성, (2) 요약 결과에서 실행항목을 추출하고 참여자 목록·과거 배정 이력을 근거로 담당자를 매칭, (3) 요약 결과의 캐싱 및 재사용을 통한 LLM 호출 비용·지연시간 절감, (4) 외부 LLM 호출의 오케스트레이션(프롬프트 조립, 재시도, 폴백, 비용/토큰 계측), (5) 문서 임베딩 생성 및 pgvector 기반 벡터 저장을 통한 유사 문서 추천이다. 본 기능은 PRJ-2026-05(AI 요약 기능) 프로젝트의 핵심 산출물로, AI팀이 오너십을 갖는 Kotlin/Spring Boot 기반 독립 배포 서비스로 운영되며 K8s(EKS) 상에서 별도 워크로드(GPU 미사용, CPU 기반 오케스트레이션 전용)로 분리 배포된다.",
+        "요약 파이프라인은 비동기 방식으로 동작한다. Board/Document/Chat 서비스에서 요약 대상 이벤트(회의록 저장, 문서 확정, 채팅 스레드 종료 등)가 발생하면 Kafka를 통해 요약 요청이 큐잉되고, 워커가 리소스 유형별 프롬프트 템플릿을 조립해 LLM을 호출한다. 응답으로 받은 요약 결과는 마크다운 형태로 정규화되어 저장되며, 동일 리소스에 대해 원문 해시가 변하지 않은 재요약 요청은 Redis 캐시(TTL 24시간) 히트 시 LLM 호출 없이 즉시 반환하고, 캐시 미스 시에도 PostgreSQL의 ai_summaries 테이블을 조회해 최근 생성된 결과가 있으면 이를 우선 반환함으로써 이중 캐싱 구조를 갖는다. 실행항목 추출은 요약 생성과 동일한 LLM 호출에서 구조화 출력(JSON 스키마 강제)으로 함께 반환받으며, 추출된 담당자 후보 텍스트(예: '김민준님이')는 워크스페이스 멤버 목록과 이름/닉네임 유사도 매칭 및 최근 카드 배정 이력을 참고해 실제 user_id로 해석한다. 매칭 신뢰도가 임계값 미만이면 담당자를 비워두고 카드 작성자가 수동 확인하도록 인앱 알림을 발행한다(Notification Service의 ai-events 토픽 구독을 통해 전달).",
+        "임베딩 생성 및 유사 문서 추천 기능은 요약 파이프라인과 별도의 트랙으로 동작한다. 문서가 저장되거나 갱신되면 File Storage/Document Service가 발행하는 이벤트를 구독하여 본문을 800토큰 단위로 청킹하고, 각 청크에 대해 임베딩을 생성한 뒤 pgvector 확장이 설치된 PostgreSQL에 벡터로 저장한다. 유사 문서 조회 시에는 코사인 거리 기반 근사 최근접 이웃 검색(IVFFlat 인덱스)을 사용해 상위 N개 문서를 반환하며, 워크스페이스 경계를 벗어난 문서는 검색 대상에서 제외해 테넌트 간 데이터 격리를 보장한다.",
+        "의존 서비스 및 외부 LLM 연동: AI Summary Service는 내부적으로 Board Service·Document Service·Realtime Collaboration Service(채팅)가 발행하는 요약 트리거 이벤트(summary-request-events)와 File Storage Service가 발행하는 문서 변경 이벤트(document-events)를 Kafka로 구독하는 소비자인 동시에, 요약/실행항목 생성 완료 시 ai-events 토픽을 발행해 Notification Service(완료 알림)와 Board Service(카드 자동 생성)에 결과를 전달하는 발행자 역할도 겸한다. 외부 LLM 연동은 사내 표준 LLM Gateway(OpenAI GPT 계열을 1차, Anthropic Claude 계열을 폴백 provider로 구성한 프록시 레이어)를 경유하며, 서비스가 벤더 API를 직접 호출하지 않고 게이트웨이의 단일 인터페이스만 바라보도록 하여 provider 교체나 장애 시 폴백 전환에 코드 변경이 필요 없게 했다. 회의록·문서 원문은 프롬프트 전송 전 정규식 및 자체 PII 탐지 모델로 이메일·전화번호·주민등록번호 패턴을 마스킹하며, LLM Gateway 호출은 Resilience4j 서킷 브레이커와 함께 provider별 타임아웃(15초) 및 최대 2회 재시도가 적용되고, 연속 실패 시 폴백 provider로 자동 전환된다. 임베딩 생성은 별도의 임베딩 전용 모델(OpenAI text-embedding 계열)을 사용하며 요약용 LLM 호출과는 독립된 rate limit·비용 버킷으로 관리된다.",
+        "기술 스택 선정 이유: 애플리케이션 계층은 Kotlin/Spring Boot 3로 구현해 백엔드팀 표준 스택과 통일함으로써 타 서비스와의 코드 리뷰·배포 파이프라인·모니터링 방식을 공유한다. 이벤트 수신/발행은 회사 공통 이벤트 버스인 Kafka(AWS MSK)를 그대로 사용해 별도 메시징 인프라를 신설하지 않았다. 요약·실행항목 캐시는 응답 지연이 짧아야 하는 특성상 Redis Cluster를 우선 조회 계층으로 두고, 캐시 유실 시에도 재구성이 가능하도록 원본은 PostgreSQL에 영속화하는 2단 구조를 택했다. 벡터 저장소로는 별도의 전용 벡터 DB(Pinecone, Milvus 등) 도입 대신 pgvector 확장을 선택했는데, 이는 ADR-04(단일 RDBMS 유지) 원칙에 부합하면서도 문서 메타데이터(권한, 워크스페이스 ID)와 벡터를 동일 트랜잭션·동일 조인 쿼리로 다룰 수 있어 별도 데이터 동기화 파이프라인이 불필요하기 때문이다. 외부 LLM은 사내 LLM Gateway를 통해 OpenAI를 1차, Anthropic Claude를 폴백으로 이중화하여 특정 벤더 장애나 요금 정책 변경에 대한 종속성을 낮췄고, LLM 호출 오케스트레이션에는 Spring 진영과 통합이 쉬운 Resilience4j를 재시도·서킷 브레이커 라이브러리로 채택했다."
+      ],
+      "table": {
+        "headers": ["Method", "Path", "설명"],
+        "rows": [
+          ["POST", "/api/v1/ai/summaries", "회의록/문서/채팅 요약 생성 요청 (비동기, 202 Accepted 후 상태 폴링 또는 웹훅)"],
+          ["GET", "/api/v1/ai/summaries/{summaryId}", "요약 결과 상세 조회 (요약문, 사용 모델, 생성 상태)"],
+          ["GET", "/api/v1/ai/summaries", "리소스 유형/ID 기준 요약 이력 목록 조회 (resourceType, resourceId 쿼리 파라미터)"],
+          ["POST", "/api/v1/ai/summaries/{summaryId}/regenerate", "요약 강제 재생성 요청 (캐시 무시, 원문 변경 없어도 재호출)"],
+          ["GET", "/api/v1/ai/action-items", "특정 요약에서 추출된 실행항목 목록 조회 (summaryId 쿼리 파라미터)"],
+          ["PATCH", "/api/v1/ai/action-items/{actionItemId}", "실행항목의 담당자·마감일·상태 수동 수정"],
+          ["POST", "/api/v1/ai/embeddings", "문서 임베딩 생성 요청 (내부 서비스 간 호출, 문서 저장/갱신 시 트리거)"],
+          ["GET", "/api/v1/ai/documents/{documentId}/similar", "벡터 유사도 기반 유사 문서 추천 목록 조회 (상위 N건)"]
+        ]
+      }
+    },
+    {
+      "heading": "5-5a. AI Summary Service - DB 스키마",
+      "paragraphs": [],
+      "table": {
+        "headers": ["테이블명", "주요 컬럼", "설명"],
+        "rows": [
+          ["ai_summaries", "id, workspace_id, resource_type, resource_id, source_hash, summary_text, model, status, created_at", "리소스별 요약 결과 저장, source_hash로 원문 변경 여부 판별해 캐시 재사용 여부 결정"],
+          ["ai_action_items", "id, summary_id, description, assignee_user_id, match_confidence, due_date, status, created_at", "요약에서 추출된 실행항목, LLM이 제안한 담당자 매칭 신뢰도 및 최종 확정 담당자 기록"],
+          ["ai_document_embeddings", "id, document_id, chunk_index, content_chunk, embedding VECTOR(1536), created_at", "pgvector 확장을 이용한 문서 청크 단위 임베딩 저장, IVFFlat 인덱스로 유사도 검색 지원"],
+          ["ai_embedding_jobs", "id, document_id, status, chunk_count, retry_count, last_error, updated_at", "임베딩 생성 비동기 작업의 진행 상태 추적 및 실패 시 재처리 대상 관리"],
+          ["ai_llm_call_logs", "id, request_type, provider, model, prompt_tokens, completion_tokens, latency_ms, status, requested_at", "요약/임베딩 목적 외부 LLM 호출 이력, 토큰 사용량·지연시간·실패율 계측 및 비용 정산 근거"]
+        ]
+      }
+    }
+  ]
+}

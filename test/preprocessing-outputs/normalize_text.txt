@@ -1,0 +1,9 @@
+=== 자연어 정규화 결과 (FR-PRE-001) ===
+생성 시각: 2026-08-16T14:38:12
+
+--- [직접 입력] ---
+원문 (그대로)          : 즉 Gateway 내부의 탐지 연동 및 정책 처리 로직은 Explicit Proxy 방식에 종속되지 않도록 구성하고, Client → Gateway 요청 유입 방식만 변경할 수 있도록 설계한다.
+원문 (repr, 특수문자용) : '즉 Gateway 내부의 탐지 연동 및 정책 처리 로직은 Explicit Proxy 방식에 종속되지 않도록 구성하고, Client → Gateway 요청 유입 방식만 변경할 수 있도록 설계한다.'
+정규화 후 (그대로)      : 즉 Gateway 내부의 탐지 연동 및 정책 처리 로직은 Explicit Proxy 방식에 종속되지 않도록 구성하고, Client → Gateway 요청 유입 방식만 변경할 수 있도록 설계한다.
+정규화 후 (repr)        : '즉 Gateway 내부의 탐지 연동 및 정책 처리 로직은 Explicit Proxy 방식에 종속되지 않도록 구성하고, Client → Gateway 요청 유입 방식만 변경할 수 있도록 설계한다.'
+길이 변화              : 108자 -> 108자

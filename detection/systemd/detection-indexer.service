@@ -1,0 +1,22 @@
+[Unit]
+Description=KISIA DLP document indexer (RDS documents -> Redis window-hash index)
+After=network-online.target redis-server.service
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/detection/src
+EnvironmentFile=/opt/detection/pg.env
+# 탐지 API(detection.service)와 같은 Redis DB여야 한다
+Environment=REDIS_PASSWORD=<REDIS_PASSWORD>
+Environment=REDIS_DB=3
+ExecStart=/opt/detection/src/.venv/bin/python -m docstore.indexer
+Restart=always
+RestartSec=5
+# 같은 인스턴스의 탐지 API 응답을 지키려고 CPU 우선순위·사용량을 낮춘다
+Nice=10
+CPUQuota=50%
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

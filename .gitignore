@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+outputs/
+*.egg-info/
+.venv/
+venv/
+*.bak
+*.bak[0-9]
+.DS_Store
+desktop.ini
+*.sqlite3
+pg.env
+*.pem
+*.log

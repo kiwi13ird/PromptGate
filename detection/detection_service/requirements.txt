@@ -1,0 +1,9 @@
+fastapi==0.139.0
+pydantic==2.12.5
+uvicorn==0.50.0
+redis==8.1.0
+async-timeout==5.0.1   # redis.asyncio가 무조건 임포트하는데 redis 패키지 자체 의존성 선언에서 빠져있어 명시
+# 아래는 실행에는 불필요 - 테스트 전용.
+httpx==0.28.1        # FastAPI TestClient가 내부적으로 필요로 함
+fakeredis==2.37.1    # 실제 Redis 서버 없이 ingest+조회 왕복 테스트
+pytest==9.0.3
