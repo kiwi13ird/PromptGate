@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from preprocessing.router import process_input
 
 GROUND_TRUTH_PATH = (
-    Path(__file__).resolve().parents[2] / "docs" / "testbed-dataset" / "ground_truth_pii_credential.json"
+    Path(__file__).resolve().parents[2] / "test" / "testbed" / "ground_truth_pii_credential.json"
 )
 
 PATTERNS = {

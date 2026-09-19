@@ -1,9 +1,11 @@
 """FR-GW-005(입력 유형 식별) 개념을 흉내낸 통합 입력 라우터.
 
-실제 시스템에서는 게이트웨이가 OpenAI API 요청 Body를 보고 자연어/문서를 나누지만,
-이 테스트베드에는 아직 게이트웨이가 없다. process_input()은 그 앞단이 있다고 가정하고
-"입력이 자연어든 PDF든 DOCX든, 뭐가 됐든 하나의 함수에 넣으면 정규화까지 끝난
-ParsedDocument가 나온다"를 보장한다.
+process_input()은 앞단에 입력 유형을 나눠주는 무언가가 있다고 가정하고 "입력이 자연어든
+PDF든 DOCX든, 뭐가 됐든 하나의 함수에 넣으면 정규화까지 끝난 ParsedDocument가 나온다"를
+보장한다. 지금은 이 모듈을 Detection EC2의 적재 파이프라인(`hashdb/ingest.py`)이 원본
+문서 파싱에 쓴다 - Gateway EC2(`gateway.py`, mitmproxy)는 이미 자체적으로 인메모리
+추출을 하고 있어서 이 함수 전체가 아니라 `normalizer.normalize_text()`만 가져다 쓴다
+(`docs/pipelines/gateway-detection-integration-design.md` §1.1 참고).
 
 라우팅 규칙:
   1. 존재하는 파일 경로  -> 파일 내용(매직바이트, format_detect.py)으로 실제 포맷 판별

@@ -21,7 +21,7 @@ import pytest
 from preprocessing.indexer import build_offset_map
 from preprocessing.router import process_input
 
-GENERATED_DIR = Path(__file__).resolve().parents[3] / "docs" / "testbed-dataset" / "generated"
+GENERATED_DIR = Path(__file__).resolve().parents[3] / "test" / "testbed" / "generated"
 
 PII_PATTERNS = {
     "주민등록번호": re.compile(r"(?<!\d)\d{6}-[1-4]\d{6}(?!\d)"),
