@@ -1,0 +1,16 @@
+[Unit]
+Description=KISIA DLP decision log shipper (decisions.jsonl -> RDS decisions)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/detection/src
+EnvironmentFile=/opt/detection/pg.env
+Environment=DETECTION_LOG_PATH=/opt/detection/logs/decisions.jsonl
+ExecStart=/opt/detection/src/.venv/bin/python -m detection_service.log_shipper
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
