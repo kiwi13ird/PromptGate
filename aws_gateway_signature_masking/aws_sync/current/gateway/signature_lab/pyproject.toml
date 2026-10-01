@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "signature-detector"
+version = "0.1.0"
+description = "Presidio 기반 한국형 PII 탐지 및 DOCX 마스킹 실험 프로젝트"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "presidio-analyzer==2.2.364",
+    "python-docx==1.2.0",
+]
+
+[project.scripts]
+evaluate-pii = "evaluation.evaluate_pii:main"
+mask-evaluation-docx = "evaluation.run_docx_masking:main"
+evaluate-docx-masking = "evaluation.evaluate_docx_masking:main"
+
+[tool.setuptools.packages.find]
+include = ["signature_detector*", "evaluation*"]
