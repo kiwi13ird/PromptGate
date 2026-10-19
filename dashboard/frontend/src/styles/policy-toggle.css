@@ -1,0 +1,67 @@
+/* 탐지 정책 — 분류별 항목 토글 목록(2026-10-16). 새 클래스(pg-polt-*)만. 색은 --pg-* 값만 써서 다크 모드를 따른다.
+ * 줄: 이름 · 이름표 필요 · 코드 | 토글 · 처리 방식 · 상태 · ⋯. 좁은 화면(≤ 720px)은 이름 줄 아래로 조작 줄을 내린다. */
+
+.console-shell .pg-polt { overflow: visible; }
+.console-shell .pg-polt-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px var(--pg-space-4); padding: var(--pg-space-4) var(--pg-space-5) var(--pg-space-3); border-bottom: 1px solid var(--pg-border); }
+.console-shell .pg-polt-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
+.console-shell .pg-polt-count { color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-polt-default { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px 8px; }
+.console-shell .pg-polt-default-label { color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-polt-fallback { color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-polt-meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 2px 0; margin: 0; color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-polt-meta > span + span::before { content: '·'; margin: 0 6px; color: var(--pg-border-strong); }
+.console-shell .pg-polt-meta .mono { font-family: var(--pg-mono); }
+.console-shell .pg-polt-head > .pg-polt-error { grid-column: 1 / -1; }
+
+.console-shell .pg-polt-select { height: var(--pg-control-h-table); min-width: 128px; padding: 0 28px 0 10px; border: 1px solid var(--pg-border-strong); border-radius: var(--pg-radius-sm); background-color: var(--pg-surface); color: var(--pg-text); font: inherit; font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-weight: var(--pg-w-semibold); cursor: pointer; accent-color: var(--pg-brand); }
+.console-shell .pg-polt-select[data-tone='block'] { color: var(--pg-block); }
+.console-shell .pg-polt-select[data-tone='mask'] { color: var(--pg-mask); }
+.console-shell .pg-polt-select[data-tone='allow'] { color: var(--pg-allow); }
+.console-shell .pg-polt-select option { color: var(--pg-text); background: var(--pg-surface); }
+.console-shell .pg-polt-select:disabled { cursor: not-allowed; opacity: .6; }
+.console-shell .pg-polt-select:focus-visible, .console-shell .pg-polt-switch:focus-visible { outline: 2px solid var(--pg-focus); outline-offset: 2px; }
+
+.console-shell .pg-polt-list { margin: 0; padding: 0; list-style: none; }
+.console-shell .pg-polt-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px var(--pg-space-4); min-height: 52px; padding: 8px var(--pg-space-5); border-left: 3px solid transparent; }
+.console-shell .pg-polt-item + .pg-polt-item { border-top: 1px solid var(--pg-border); }
+.console-shell .pg-polt-item[data-on='true'][data-tone='block'] { border-left-color: var(--pg-block-solid); }
+.console-shell .pg-polt-item[data-on='true'][data-tone='mask'] { border-left-color: var(--pg-mask-solid); }
+.console-shell .pg-polt-item[data-on='true'][data-tone='allow'] { border-left-color: var(--pg-allow-solid); }
+.console-shell .pg-polt-item:hover { background: var(--pg-surface-2); }
+.console-shell .pg-polt-item[data-selected='true'], .console-shell .pg-polt-head[data-selected='true'] { background: var(--pg-brand-soft); }
+.console-shell .pg-polt-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.console-shell .pg-polt-label { color: var(--pg-text); font-size: var(--pg-t-md); line-height: var(--pg-lh-md); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-polt-code { color: var(--pg-text-3); font-family: var(--pg-mono); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); overflow-wrap: anywhere; }
+.console-shell .pg-polt-hit { color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); font-variant-numeric: tabular-nums; }
+
+.console-shell .pg-polt-controls { display: grid; grid-template-columns: 40px 168px 64px 32px; align-items: center; justify-items: start; gap: var(--pg-space-3); }
+.console-shell .pg-polt-action { min-width: 0; }
+.console-shell .pg-polt-action .pg-polt-select { width: 168px; }
+.console-shell .pg-polt-inherit { color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-polt-inherit small { color: var(--pg-text-3); font-size: var(--pg-t-xs); }
+.console-shell .pg-polt-menu { justify-self: end; }
+.console-shell .pg-polt-saving { color: var(--pg-info); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); font-weight: var(--pg-w-semibold); white-space: nowrap; }
+
+/* 토글(스위치): 켬 = 브랜드 초록 + 손잡이 오른쪽. 색만으로 알리지 않도록 상태 배지(적용 중/꺼짐)를 옆에 둔다 */
+.console-shell .pg-polt-switch { position: relative; flex: none; width: 36px; height: 20px; padding: 0; border: 0; border-radius: 999px; background: var(--pg-border-strong); cursor: pointer; transition: background-color .12s ease; }
+.console-shell .pg-polt-switch[aria-checked='true'] { background: var(--pg-brand); }
+.console-shell .pg-polt-switch:disabled { cursor: not-allowed; opacity: .5; }
+.console-shell .pg-polt-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform .12s ease; }
+.console-shell .pg-polt-switch[aria-checked='true'] .pg-polt-knob { transform: translateX(16px); }
+
+.console-shell .pg-polt-rule { grid-column: 1 / -1; margin: 0; color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-polt-error { grid-column: 1 / -1; margin: 0; }
+.console-shell .pg-polt-notes { display: grid; gap: 2px; color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-polt-notes p { margin: 0; }
+
+@media (max-width: 720px) {
+  .console-shell .pg-polt-meta { gap: 2px 12px; }
+  .console-shell .pg-polt-meta > span + span::before { content: none; }
+  .console-shell .pg-polt-head { grid-template-columns: minmax(0, 1fr); padding: var(--pg-space-3) var(--pg-space-4); }
+  .console-shell .pg-polt-default { justify-content: flex-start; }
+  .console-shell .pg-polt-item { grid-template-columns: minmax(0, 1fr); padding: 10px var(--pg-space-4) 10px calc(var(--pg-space-4) - 3px); }
+  .console-shell .pg-polt-controls { grid-template-columns: 40px minmax(0, 1fr) auto 32px; width: 100%; gap: var(--pg-space-2); }
+  .console-shell .pg-polt-action .pg-polt-select { width: 100%; min-width: 0; height: var(--pg-control-h-touch); }
+  .console-shell .pg-polt-switch { width: 40px; height: 24px; }
+  .console-shell .pg-polt-knob { width: 20px; height: 20px; }
+}

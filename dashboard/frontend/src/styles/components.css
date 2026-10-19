@@ -1,0 +1,574 @@
+/* 재설계 2단계 공통 부품(설계 2.1·4장). base.css 다음, legacy-island.css 앞에 불러온다(main.tsx).
+ * - 모든 클래스는 pg- 접두. 옛 선택자의 값은 고치지 않는다. 이벤트 3화면 본문은 이 부품을 쓰지 않는다(설계 5.2 방법 3).
+ * - 값은 디자인 값(--pg-*, tokens.css)만 쓴다. 색 코드를 직접 쓰지 않는다(메뉴 위 흰 글자 #fff 한 가지 예외: 메뉴 바탕이 라이트·다크 모두 어두움).
+ * - 옛 전역 규칙과의 관계(명시도):
+ *     .console-shell a:not(.sidebar a, …) { color } 0,2,2  → 메뉴·띠 안 링크는 클래스 3개 이상으로 정한다
+ *     .console-shell :is(strong, b) { font-weight: 550 } → 새 부품은 굵기를 span 클래스로 정한다
+ *     .console-shell .content { padding } 0,2,0           → .console-shell .pg-main(같은 명시도, 뒤에 옴)
+ *   사용법·규약: docs/design/dashboard-redesign-2026-10-13/stage2/README.md 3절 */
+
+/* ───────── 1. 뼈대: 왼쪽 메뉴 + 본문(설계 2.1·3.4·7장) ───────── */
+.console-shell.pg-shell {
+  display: grid;
+  grid-template-columns: var(--pg-nav-width) minmax(0, 1fr);
+  min-height: 100vh;
+  /* 메뉴(높이 100vh, sticky) 아래로 긴 화면에서도 메뉴 칸이 같은 바탕으로 이어지게. 본문 쪽은 화면 바탕
+   * (이벤트 화면은 legacy-island.css가 --pg-frame-bg로 옛 바탕을 준다) */
+  background: linear-gradient(to right, var(--pg-nav-bg) var(--pg-nav-width), var(--pg-frame-bg, var(--pg-bg)) var(--pg-nav-width));
+}
+.pg-nav {
+  /* z-index를 주지 않는다(auto): 메뉴가 본문보다 먼저 칠해지는 옛 메뉴와 같은 칠 순서 — 이벤트 본문의 합성 레이어 구성이 기준과 같아야
+   * 화소가 같다(stage2/README.md 6절). 데스크톱에서는 메뉴와 본문이 겹치지 않는다 */
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+  padding: var(--pg-space-4) var(--pg-space-3) var(--pg-space-3);
+  background: var(--pg-nav-bg);
+  color: var(--pg-nav-text);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--pg-nav-text) 25%, transparent) transparent;
+}
+.pg-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px var(--pg-space-4);
+  border-bottom: 1px solid var(--pg-nav-line);
+  color: #fff;
+}
+.pg-nav-brand > svg { width: 22px; height: 22px; flex: none; }
+.pg-nav-brand-text { display: grid; min-width: 0; }
+.pg-nav-brand-name { font-size: var(--pg-t-lg); line-height: 20px; font-weight: var(--pg-w-bold); letter-spacing: -.01em; }
+.pg-nav-brand-sub { font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); color: var(--pg-nav-muted); }
+.pg-nav-close { display: none; }
+.pg-nav-menu { display: grid; gap: 2px; padding-top: 4px; }
+.pg-nav-group { padding: 10px 0 2px; }
+.pg-nav-group-label {
+  margin: 0;
+  padding: 0 10px 4px;
+  font-size: var(--pg-t-xs);
+  line-height: var(--pg-lh-xs);
+  font-weight: var(--pg-w-semibold);
+  letter-spacing: .02em;
+  color: var(--pg-nav-muted);
+}
+.pg-nav-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.console-shell .pg-nav .pg-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 7px 10px;
+  border-radius: var(--pg-radius-sm);
+  color: var(--pg-nav-text);
+  font-size: var(--pg-t-md);
+  line-height: var(--pg-lh-md);
+  font-weight: var(--pg-w-regular);
+  text-decoration: none;
+}
+.console-shell .pg-nav .pg-nav-link svg { width: 16px; height: 16px; flex: none; }
+.console-shell .pg-nav .pg-nav-link:hover { background: color-mix(in srgb, #fff 6%, transparent); color: #fff; }
+.console-shell .pg-nav .pg-nav-link.is-current {
+  background: var(--pg-nav-active);
+  color: #fff;
+  font-weight: var(--pg-w-bold);
+  box-shadow: inset 3px 0 0 var(--pg-nav-accent);
+}
+.console-shell .pg-nav :is(a, button):focus-visible { outline: 2px solid var(--pg-nav-accent); outline-offset: -2px; }
+.pg-nav-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding: var(--pg-space-3) 8px 0;
+  border-top: 1px solid var(--pg-nav-line);
+}
+.pg-nav-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--pg-nav-active);
+  color: #fff;
+  font-size: var(--pg-t-xs);
+  font-weight: var(--pg-w-bold);
+}
+.pg-nav-user { display: grid; flex: 1; min-width: 0; }
+.pg-nav-user-name, .pg-nav-user-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-nav-user-name { font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-weight: var(--pg-w-semibold); color: #fff; }
+.pg-nav-user-email { font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); color: var(--pg-nav-muted); }
+.pg-nav-logout, .pg-nav-close {
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--pg-radius-sm);
+  background: transparent;
+  color: var(--pg-nav-muted);
+  cursor: pointer;
+}
+.pg-nav-logout { display: grid; }
+.pg-nav-logout:hover, .pg-nav-close:hover { background: color-mix(in srgb, #fff 8%, transparent); color: #fff; }
+.pg-nav-logout svg, .pg-nav-close svg { width: 16px; height: 16px; }
+.pg-nav-backdrop, .pg-mobile-bar { display: none; }
+
+.pg-workspace { display: block; min-width: 0; }   /* 블록(옛 .workspace와 같은 칠 순서). 플렉스로 두면 이벤트 본문 화소가 달라진다(6절) */
+.console-shell .pg-main { min-width: 0; padding: var(--pg-space-6) var(--pg-content-pad) var(--pg-space-8); }
+/* 이벤트 화면 본문 자리([data-frame='legacy'])의 여백·바탕은 legacy-island.css가 옛 값으로 정한다(기준 빌드 실측) */
+
+@media (max-width: 800px) {
+  .console-shell.pg-shell { display: block; background: var(--pg-frame-bg, var(--pg-bg)); }
+  .pg-nav {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 60;   /* 열린 메뉴는 본문 위 */
+    width: min(calc(var(--pg-nav-width) + 32px), 86vw);
+    height: 100%;
+    /* 닫힌 메뉴는 그리지 않는다(Tab·화면 읽기 대상에서도 빠짐). visibility 전환으로 숨기면 열린 직후 안쪽 요소가 아직 hidden이라
+     * 포커스를 옮길 수 없는 경우가 있어(실측) display로 바꾸고, 열 때만 왼쪽에서 밀려 나오게 한다(@starting-style) */
+    display: none;
+    box-shadow: var(--pg-shadow-2);
+  }
+  .pg-nav.is-open { display: flex; transform: none; transition: transform .18s ease; }
+  @starting-style { .pg-nav.is-open { transform: translateX(-100%); } }
+  .pg-nav-close { display: grid; margin-left: auto; }
+  .console-shell .pg-nav .pg-nav-link { min-height: 40px; }
+  .pg-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 59;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: color-mix(in srgb, var(--pg-nav-bg) 70%, transparent);
+  }
+  /* 고정(sticky)하지 않는다: 옛 상단 띠처럼 문서 흐름에 둔다(합성 레이어를 따로 만들지 않아 이벤트 본문 화소가 기준과 같다, 6절) */
+  .pg-mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--pg-space-2);
+    height: var(--pg-mobile-bar-h);
+    padding: 0 var(--pg-space-3);
+    background: var(--pg-surface);
+    border-bottom: 1px solid var(--pg-border);
+  }
+  .pg-mobile-menu {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--pg-border-strong);
+    border-radius: var(--pg-radius-sm);
+    background: var(--pg-surface);
+    color: var(--pg-text);
+    cursor: pointer;
+  }
+  .pg-mobile-menu svg { width: 18px; height: 18px; }
+  .pg-mobile-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--pg-text);
+    font-size: var(--pg-t-lg);
+    line-height: var(--pg-lh-lg);
+    font-weight: var(--pg-w-bold);
+  }
+  .pg-mobile-brand svg { width: 20px; height: 20px; color: var(--pg-brand-text); }
+  .console-shell .pg-main { padding: var(--pg-space-4) var(--pg-content-pad) var(--pg-space-7); }
+}
+
+/* ───────── 2. 페이지 머리(설계 4.1) ───────── */
+.pg-page-header { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--pg-space-3); min-width: 0; margin: 0 0 var(--pg-space-4); }
+/* 그리드 간격으로 구획을 띄우는 화면(Gateway 처리·접속 차단)은 간격을 두 번 두지 않는다 */
+:is(.gws-page, .acc-page) > .pg-page-header { margin-bottom: 2px; }
+.pg-page-header-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--pg-space-3) var(--pg-space-4); min-width: 0; }
+.pg-page-heading { flex: 1 1 280px; min-width: 0; }
+.pg-page-title {
+  margin: 0;
+  color: var(--pg-text);
+  font-size: var(--pg-t-xl);
+  line-height: var(--pg-lh-xl);
+  font-weight: var(--pg-w-bold);
+  letter-spacing: -.01em;
+  overflow-wrap: anywhere;
+}
+.pg-page-description {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--pg-text-2);
+  font-size: var(--pg-t-md);
+  line-height: var(--pg-lh-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pg-page-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--pg-space-2); min-width: 0; min-height: var(--pg-control-h); }
+.pg-page-slot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pg-space-2); min-width: 0; }
+.pg-page-tabs { min-width: 0; }
+
+.pg-refresh { display: inline-flex; align-items: center; gap: var(--pg-space-2); min-width: 0; }
+.pg-refresh-time { color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pg-refresh-time::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--pg-allow-solid);
+  vertical-align: 1px;
+}
+.pg-refresh-time.is-failed { color: var(--pg-mask); font-weight: var(--pg-w-semibold); }
+.pg-refresh-time.is-failed::before { background: var(--pg-mask-solid); }
+.pg-refresh-new {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--pg-info-solid) 40%, transparent);
+  border-radius: var(--pg-radius-full);
+  background: var(--pg-info-bg);
+  color: var(--pg-info);
+  font-size: var(--pg-t-xs);
+  font-weight: var(--pg-w-semibold);
+  cursor: pointer;
+}
+.pg-refresh-button svg { width: 16px; height: 16px; }
+
+.pg-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--pg-border); }
+/* 트래픽 탭은 옛 클래스(.console-section-nav, 0,3,0 규칙)를 함께 달고 있어 머리 안에서 같은 명시도로 다시 정한다 */
+.console-shell .pg-page-header .pg-tabs { gap: 4px; margin: 0; padding: 0; border-bottom: 1px solid var(--pg-border); }
+.console-shell .pg-page-header .pg-tabs a {
+  margin-bottom: -1px;
+  padding: 8px 12px;
+  border-bottom: 2px solid transparent;
+  color: var(--pg-text-2);
+  font-size: var(--pg-t-md);
+  line-height: var(--pg-lh-md);
+  font-weight: var(--pg-w-regular);
+  text-decoration: none;
+}
+.console-shell .pg-page-header .pg-tabs a:hover { color: var(--pg-text); }
+.console-shell .pg-page-header .pg-tabs a[aria-current='page'] { border-bottom-color: var(--pg-brand); color: var(--pg-text); font-weight: var(--pg-w-bold); }
+
+@media (max-width: 800px) {
+  /* 한 줄(nowrap) 세로 배치: 여러 줄(wrap)이면 줄 폭이 글자 길이(max-content)로 정해져 말줄임 설명이 화면 밖으로 나간다 */
+  .pg-page-header-row { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+  .pg-page-heading { flex-basis: auto; }
+  .pg-page-actions { justify-content: flex-start; }
+  /* 갱신 시각 글자는 숨기고 아이콘만(실패 표시는 남김) */
+  .pg-refresh-time:not(.is-failed) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .pg-page-actions [data-slot='button'] { min-height: var(--pg-control-h-touch); }
+  .pg-page-actions [data-slot='button'][aria-label='새로고침'] { width: var(--pg-control-h-touch); }
+  .console-shell .pg-page-header .pg-tabs a { padding-inline: 10px; }
+}
+
+/* ───────── 3. 상태 띠(설계 4.2): 정상·주의·이상·확인 불가·진행 ───────── */
+.pg-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--pg-space-3);
+  min-height: 40px;
+  padding: 9px var(--pg-space-4);
+  border: 1px solid;
+  border-radius: var(--pg-radius-md);
+  font-size: var(--pg-t-sm);
+  line-height: var(--pg-lh-sm);
+}
+.pg-strip-lamp { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.pg-strip-word { font-size: var(--pg-t-md); line-height: var(--pg-lh-md); font-weight: var(--pg-w-bold); }
+.pg-strip-facts { min-width: 0; color: var(--pg-text-2); }
+.pg-strip-end { display: inline-flex; align-items: center; gap: var(--pg-space-2); margin-left: auto; color: var(--pg-text-2); }
+.console-shell .pg-strip .pg-strip-end a { color: var(--pg-brand-text); text-decoration: none; }
+.console-shell .pg-strip .pg-strip-end a:hover { text-decoration: underline; }
+.pg-strip--ok { background: var(--pg-allow-bg); border-color: color-mix(in srgb, var(--pg-allow-solid) 25%, transparent); }
+.pg-strip--ok .pg-strip-word { color: var(--pg-allow); }
+.pg-strip--ok .pg-strip-lamp { background: var(--pg-allow-solid); box-shadow: 0 0 0 4px color-mix(in srgb, var(--pg-allow-solid) 20%, transparent); }
+.pg-strip--warn { background: var(--pg-mask-bg); border-color: color-mix(in srgb, var(--pg-mask-solid) 30%, transparent); }
+.pg-strip--warn .pg-strip-word { color: var(--pg-mask); }
+.pg-strip--warn .pg-strip-lamp { background: var(--pg-mask-solid); }
+.pg-strip--bad { background: var(--pg-block-bg); border-color: color-mix(in srgb, var(--pg-block-solid) 30%, transparent); }
+.pg-strip--bad .pg-strip-word { color: var(--pg-block); }
+.pg-strip--bad .pg-strip-lamp { background: var(--pg-block-solid); box-shadow: 0 0 0 4px color-mix(in srgb, var(--pg-block-solid) 20%, transparent); }
+.pg-strip--unknown { background: var(--pg-neutral-bg); border-color: var(--pg-border); }
+.pg-strip--unknown .pg-strip-word { color: var(--pg-neutral); }
+.pg-strip--unknown .pg-strip-lamp { background: var(--pg-neutral-solid); }
+.pg-strip--progress { background: var(--pg-info-bg); border-color: color-mix(in srgb, var(--pg-info-solid) 25%, transparent); }
+.pg-strip--progress .pg-strip-word { color: var(--pg-info); }
+.pg-strip--progress .pg-strip-lamp { background: var(--pg-info-solid); }
+.pg-page-header > .pg-strip { margin: 0; }
+
+/* ───────── 4. 배지 1종(설계 4.4): 기본 · 점 · 태그 ───────── */
+.pg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--pg-radius-full);
+  font-size: var(--pg-t-xs);
+  line-height: 1;
+  font-weight: var(--pg-w-bold);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.pg-badge--block { background: var(--pg-block-bg); color: var(--pg-block); }
+.pg-badge--mask { background: var(--pg-mask-bg); color: var(--pg-mask); }
+.pg-badge--allow { background: var(--pg-allow-bg); color: var(--pg-allow); }
+.pg-badge--info { background: var(--pg-info-bg); color: var(--pg-info); }
+.pg-badge--neutral { background: var(--pg-neutral-bg); color: var(--pg-neutral); }
+.pg-badge--dot::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pg-badge--tag { border-radius: var(--pg-radius-sm); background: var(--pg-surface-3); color: var(--pg-text-2); font-weight: var(--pg-w-semibold); }
+.pg-badge small { color: inherit; font-size: inherit; font-weight: var(--pg-w-regular); }
+
+/* ───────── 5. 지표 카드(설계 4.3) ─────────
+ * 이름(13/600) → 숫자(32, 모바일 28) → 보조 1줄(12). 색은 차단·마스킹만(왼쪽 3px 띠 + 숫자 색). 한 줄 4개까지, 모바일 2×2.
+ * KpiMetric(OverviewPanels.tsx)이 옛 클래스(.console-kpi)를 함께 달고 있어(시험 보호) 옛 규칙을 같은 명시도 이상으로 덮는다. */
+.console-shell .pg-kpi-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--pg-space-4); margin: 0 0 var(--pg-space-4); }
+.console-shell .pg-kpi-group > .pg-kpi {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 2px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 14px var(--pg-space-4) var(--pg-space-4);
+  border: 1px solid var(--pg-border);
+  border-radius: var(--pg-radius-md);
+  background: var(--pg-surface);
+  box-shadow: var(--pg-shadow-1);
+  color: var(--pg-text);
+  text-decoration: none;
+}
+.console-shell .pg-kpi-group > .pg-kpi:first-child { margin: 0; }
+.console-shell .pg-kpi-group > .pg-kpi:hover { border-color: var(--pg-border-strong); background: var(--pg-surface); text-decoration: none; }
+.console-shell .pg-kpi-group > .pg-kpi--block { box-shadow: inset 3px 0 0 var(--pg-block-solid), var(--pg-shadow-1); }
+.console-shell .pg-kpi-group > .pg-kpi--mask { box-shadow: inset 3px 0 0 var(--pg-mask-solid), var(--pg-shadow-1); }
+/* 옛 .console-kpi > span:first-child(0,2,1) 등을 이기도록 그룹 안에서 정한다 */
+.console-shell .pg-kpi-group .pg-kpi-label { color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-kpi-group .pg-kpi-value { color: var(--pg-text); font-size: var(--pg-t-num); line-height: var(--pg-lh-num); font-weight: var(--pg-w-bold); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.console-shell .pg-kpi-group .pg-kpi--block .pg-kpi-value { color: var(--pg-block); }
+.console-shell .pg-kpi-group .pg-kpi--mask .pg-kpi-value { color: var(--pg-mask); }
+.console-shell .pg-kpi-group .pg-kpi-unit { margin-left: 2px; color: var(--pg-text-2); font-size: var(--pg-t-md); font-weight: var(--pg-w-semibold); letter-spacing: 0; }
+.console-shell .pg-kpi-group .pg-kpi-sub { color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+@media (max-width: 800px) {
+  .console-shell .pg-kpi-group { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+}
+
+/* ───────── 6. 표 → 카드(설계 4.5·4.6) ─────────
+ * 규약: <Table card>(components/ui/table.tsx) 또는 직접 쓴 표는 감싼 요소에 .pg-table-wrap, 표에 .pg-table + role 명시.
+ *   칸: data-card="title|badge|info|body|actions|hide", 정보 칸 이름표: data-label="5분"(카드에서 "5분 7"), 빈 칸: data-empty
+ *   행 왼쪽 색 띠: <tr data-tone="block|mask|allow|info|neutral">
+ * 기준은 화면 폭이 아니라 표를 감싼 영역 폭 720px 이하(컨테이너 쿼리). 표 역할·머리 이름은 그대로 남는다(머리는 화면에서만 숨김). */
+.pg-table-wrap { container: pg-table / inline-size; min-width: 0; }
+.pg-table tbody tr[data-tone] > td:first-child { box-shadow: inset 3px 0 0 var(--pg-neutral-solid); }
+.pg-table tbody tr[data-tone='block'] > td:first-child { box-shadow: inset 3px 0 0 var(--pg-block-solid); }
+.pg-table tbody tr[data-tone='mask'] > td:first-child { box-shadow: inset 3px 0 0 var(--pg-mask-solid); }
+.pg-table tbody tr[data-tone='allow'] > td:first-child { box-shadow: inset 3px 0 0 var(--pg-allow-solid); }
+.pg-table tbody tr[data-tone='info'] > td:first-child { box-shadow: inset 3px 0 0 var(--pg-info-solid); }
+.pg-table .pg-num { text-align: right; font-variant-numeric: tabular-nums; }
+@container pg-table (max-width: 720px) {
+  .pg-table-wrap .pg-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* 화면 CSS가 표에 준 최소 폭(예: 감사 로그 min-width 720px)을 풀어 카드가 영역 안에 들어오게 한다 */
+  .pg-table-wrap .pg-table, .pg-table-wrap .pg-table tbody { display: block; width: 100%; min-width: 0; max-width: 100%; }
+  .pg-table-wrap .pg-table tbody tr {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px var(--pg-space-2);
+    height: auto;
+    padding: var(--pg-space-3) 14px;
+    border-bottom: 1px solid var(--pg-border);
+  }
+  .pg-table-wrap .pg-table tbody tr:last-child { border-bottom: 0; }
+  /* 1줄(제목·배지)과 2줄(정보) 사이 줄바꿈 */
+  .pg-table-wrap .pg-table tbody tr::before { content: ""; order: 3; flex-basis: 100%; height: 0; }
+  .pg-table-wrap .pg-table tbody td { display: block; height: auto; padding: 0; border: 0; background: none; white-space: normal; text-align: left; box-shadow: none; }
+  .pg-table-wrap .pg-table tbody tr[data-tone] > td:first-child { box-shadow: none; }
+  .pg-table-wrap .pg-table tbody tr[data-tone] { box-shadow: inset 3px 0 0 var(--pg-neutral-solid); }
+  .pg-table-wrap .pg-table tbody tr[data-tone='block'] { box-shadow: inset 3px 0 0 var(--pg-block-solid); }
+  .pg-table-wrap .pg-table tbody tr[data-tone='mask'] { box-shadow: inset 3px 0 0 var(--pg-mask-solid); }
+  .pg-table-wrap .pg-table tbody tr[data-tone='allow'] { box-shadow: inset 3px 0 0 var(--pg-allow-solid); }
+  .pg-table-wrap .pg-table tbody tr[data-tone='info'] { box-shadow: inset 3px 0 0 var(--pg-info-solid); }
+  .pg-table-wrap .pg-table td[data-card='title'] { order: 1; flex: 1 1 0; min-width: 0; color: var(--pg-text); font-size: var(--pg-t-md); line-height: var(--pg-lh-md); font-weight: var(--pg-w-semibold); }
+  .pg-table-wrap .pg-table td[data-card='badge'] { order: 2; margin-left: auto; }
+  .pg-table-wrap .pg-table td[data-card='info'] { order: 4; color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+  .pg-table-wrap .pg-table td[data-card='info'] > * { display: inline; }   /* 정보는 한 줄로 이어 쓴다(" · ") */
+  /* 2026-10-16 화면 점검: 앞 정보 칸이 비어 숨겨져도(data-empty·:empty) 줄 첫머리에 '· '가 붙던 것 → 보이는 칸 뒤에만 */
+  .pg-table-wrap .pg-table td[data-card='info']:not([data-empty]):not(:empty) ~ td[data-card='info']::before { content: "· "; color: var(--pg-text-3); }
+  .pg-table-wrap .pg-table td[data-card='info'][data-label]::before { content: attr(data-label) " "; color: var(--pg-text-3); }
+  .pg-table-wrap .pg-table td[data-card='info']:not([data-empty]):not(:empty) ~ td[data-card='info'][data-label]::before { content: "· " attr(data-label) " "; }
+  .pg-table-wrap .pg-table td[data-card='body'] { order: 5; flex: 1 1 100%; color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+  .pg-table-wrap .pg-table td[data-card='actions'] { order: 6; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--pg-space-2); margin-left: auto; }
+  .pg-table-wrap .pg-table td[data-card='actions'] [data-slot='button'] { height: var(--pg-control-h-touch); padding-inline: 14px; font-size: var(--pg-t-sm); }
+  .pg-table-wrap .pg-table td[data-card='hide'], .pg-table-wrap .pg-table td[data-card][data-empty], .pg-table-wrap .pg-table td[data-card='info']:empty { display: none; }
+}
+
+/* 글자 링크 모양 행 조치(.row-actions — 탐지 정책·문서별 키워드의 옛 화면 CSS, 0,4,0)의 위험 조치: 같은 줄 모양은 두고 빨간 글자로 구별(설계 4.10).
+ * 버튼 모양·⋯ 메뉴로 바꾸는 것은 3단계 화면 작업 */
+.console-shell .row-actions [data-slot='button'].pg-button-danger:not([data-ui='legacy'] *) { color: var(--pg-block); }
+.console-shell .row-actions [data-slot='button'].pg-button-danger:not([data-ui='legacy'] *):hover { background: transparent; text-decoration: underline; }
+
+/* ───────── 7. 필터 바(설계 4.7) ───────── */
+.pg-filter-bar { display: grid; gap: var(--pg-space-2); min-width: 0; }
+.pg-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pg-space-2); min-width: 0; }
+.pg-filter-search { flex: 1 1 320px; min-width: 0; }
+.pg-filter-main { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pg-space-2); }
+.pg-filter-more svg { width: 16px; height: 16px; }
+.pg-filter-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--pg-radius-full);
+  background: var(--pg-brand);
+  color: var(--pg-on-brand);
+  font-size: var(--pg-t-xs);
+  line-height: 1;
+  font-weight: var(--pg-w-bold);
+}
+.pg-filter-panel { padding: var(--pg-space-3) var(--pg-space-4); border: 1px solid var(--pg-border); border-radius: var(--pg-radius-md); background: var(--pg-surface-2); }
+.pg-filter-panel-head { display: none; }
+.pg-filter-panel-body { display: flex; flex-wrap: wrap; gap: var(--pg-space-3); }
+.pg-filter-sheet-backdrop { display: none; }
+.pg-filter-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pg-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--pg-border-strong);
+  border-radius: var(--pg-radius-full);
+  background: var(--pg-surface);
+  color: var(--pg-text);
+  font-size: var(--pg-t-xs);
+}
+.pg-filter-chip button { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--pg-text-3); cursor: pointer; }
+.pg-filter-chip button:hover { background: var(--pg-surface-3); color: var(--pg-text); }
+.pg-filter-chip svg { width: 12px; height: 12px; }
+@media (max-width: 800px) {
+  .pg-filter-search { flex-basis: 100%; }
+  .pg-filter-sheet-backdrop { display: block; position: fixed; inset: 0; z-index: 69; width: 100%; padding: 0; border: 0; background: rgb(0 0 0 / .35); }
+  .pg-filter-panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 70;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: var(--pg-space-3) var(--pg-space-4) var(--pg-space-6);
+    border-radius: var(--pg-radius-md) var(--pg-radius-md) 0 0;
+    background: var(--pg-surface);
+    box-shadow: var(--pg-shadow-2);
+  }
+  .pg-filter-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--pg-space-2); }
+  .pg-filter-panel-title { font-size: var(--pg-t-lg); line-height: var(--pg-lh-lg); font-weight: var(--pg-w-bold); }
+  .pg-filter-panel-body { display: grid; }
+}
+
+/* ───────── 8. 상세 서랍(설계 4.8): 오른쪽 480px, 모바일 전체 화면 ───────── */
+.pg-drawer-backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / .3); }
+.pg-drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--pg-drawer-w), 100vw);
+  height: 100%;
+  background: var(--pg-surface);
+  color: var(--pg-text);
+  box-shadow: var(--pg-shadow-2);
+  border-left: 1px solid var(--pg-border);
+  outline: none;
+  font-family: var(--pg-font);
+}
+.pg-drawer-head { display: flex; align-items: flex-start; gap: var(--pg-space-3); padding: var(--pg-space-4) var(--pg-space-4) var(--pg-space-3) var(--pg-space-5); border-bottom: 1px solid var(--pg-border); }
+.pg-drawer-heading { flex: 1; min-width: 0; }
+.pg-drawer-title { margin: 0; font-size: var(--pg-t-lg); line-height: var(--pg-lh-lg); font-weight: var(--pg-w-bold); overflow-wrap: anywhere; }
+.pg-drawer-description { margin: 2px 0 0; color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.pg-drawer-close { flex: none; }
+.pg-drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--pg-space-4) var(--pg-space-5); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.pg-drawer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--pg-space-2); padding: var(--pg-space-3) var(--pg-space-5); border-top: 1px solid var(--pg-border); background: var(--pg-surface-2); }
+@media (max-width: 800px) {
+  .pg-drawer { width: 100vw; border-left: 0; }
+  .pg-drawer-actions [data-slot='button'] { min-height: var(--pg-control-h-touch); }
+}
+
+/* ───────── 9. 빈 상태·오류·로딩(설계 4.9) ───────── */
+.pg-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--pg-space-3);
+  max-height: 96px;
+  padding: var(--pg-space-4);
+  color: var(--pg-text-2);
+  font-size: var(--pg-t-sm);
+  line-height: var(--pg-lh-sm);
+}
+.pg-empty-title { color: var(--pg-text); font-weight: var(--pg-w-semibold); }
+.pg-empty-desc { color: var(--pg-text-3); }
+.pg-empty-action { margin-left: auto; }
+.pg-error { display: flex; align-items: center; gap: var(--pg-space-3); color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.pg-error > svg { flex: none; width: 18px; height: 18px; color: var(--pg-block); }
+.pg-error--page { padding: var(--pg-space-4) var(--pg-space-5); border: 1px solid color-mix(in srgb, var(--pg-block-solid) 30%, var(--pg-border)); border-radius: var(--pg-radius-md); background: var(--pg-surface); }
+.pg-error-text { display: grid; flex: 1; min-width: 0; }
+.pg-error-message { font-weight: var(--pg-w-semibold); }
+.pg-error-reason { color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.pg-error--inline { flex-wrap: wrap; gap: 4px var(--pg-space-2); padding: var(--pg-space-2) var(--pg-space-3); border-radius: var(--pg-radius-sm); background: var(--pg-mask-bg); color: var(--pg-mask); }
+.pg-error--inline > svg { width: 16px; height: 16px; color: var(--pg-mask-solid); }
+.pg-error--inline .pg-error-reason { color: var(--pg-mask); }
+.pg-error-retry { margin-left: auto; padding: 0; border: 0; background: none; color: var(--pg-brand-text); font: inherit; font-weight: var(--pg-w-semibold); text-decoration: underline; cursor: pointer; }
+.pg-skeleton { display: grid; gap: var(--pg-space-4); }
+.pg-skeleton-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--pg-space-4); }
+.pg-skeleton-table { display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--pg-border); border-radius: var(--pg-radius-md); background: var(--pg-border); }
+.pg-skeleton-block { display: block; background: var(--pg-surface-3); animation: pg-skeleton-pulse 1.4s ease-in-out infinite; }
+.pg-skeleton-kpi { height: 92px; border-radius: var(--pg-radius-md); }
+.pg-skeleton-head { height: 36px; background: var(--pg-surface-2); }
+.pg-skeleton-row { height: var(--pg-row-h); background: var(--pg-surface); }
+@keyframes pg-skeleton-pulse { 50% { opacity: .55; } }
+@media (max-width: 800px) { .pg-skeleton-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .pg-skeleton-block { animation: none; } }
+
+/* ───────── 10. 쪽 이동·개수(설계 4.5) ───────── */
+.pg-pager { display: flex; align-items: center; justify-content: flex-end; gap: 4px; padding: var(--pg-space-2) 0; }
+.pg-pager-status { margin-right: 4px; color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); font-variant-numeric: tabular-nums; }
+.pg-count { color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-variant-numeric: tabular-nums; }
+
+/* ───────── 11. 세그먼트(차단 대화상자 기간 등, 설계 4.11) ───────── */
+.pg-segment-field { display: grid; gap: 6px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.pg-segment-field > legend { padding: 0; color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); font-weight: var(--pg-w-semibold); }
+.pg-segment-field > legend small { font-weight: var(--pg-w-regular); }
+.pg-segment { display: inline-flex; justify-self: start; gap: 2px; padding: 2px; border-radius: var(--pg-radius-sm); background: var(--pg-surface-3); }
+.pg-segment-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 5px;
+  color: var(--pg-text-2);
+  font-size: var(--pg-t-sm);
+  line-height: var(--pg-lh-sm);
+  cursor: pointer;
+}
+.pg-segment-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.pg-segment-option:has(input:checked) { background: var(--pg-surface); color: var(--pg-text); font-weight: var(--pg-w-bold); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+.pg-segment-option:has(input:focus-visible) { outline: 2px solid var(--pg-focus); outline-offset: 1px; }
+.pg-segment-field:disabled .pg-segment-option { opacity: .55; cursor: default; }
+@media (max-width: 800px) { .pg-segment-option { height: var(--pg-control-h-touch); } }
+
+/* ───────── 12. 확인 대화상자(설계 4.11) ───────── */
+.pg-confirm-lines { display: grid; gap: 2px; }

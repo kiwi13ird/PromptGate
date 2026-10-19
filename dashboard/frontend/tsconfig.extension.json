@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "paths": {
+      "@/src/services/myRequestsService": ["./src/standalone/myRequestsService.extension.ts"],
+      "@/*": ["./*"],
+      "@runtime/gateway-api": ["./src/api/httpAdapter.ts"],
+      "@runtime/auth-adapter": ["./src/auth/realAuthAdapter.ts"],
+      "@runtime/ui-mode": ["./src/config/uiMode.real.ts"]
+    }
+  },
+  "include": [
+    "src/standalone/**/*.ts",
+    "src/standalone/**/*.tsx",
+    "src/test/setup.ts",
+    "vite.extension.config.ts",
+    "vitest.extension.config.ts"
+  ],
+  "exclude": ["node_modules"]
+}

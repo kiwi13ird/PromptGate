@@ -1,0 +1,15 @@
+export const uiMode = {
+  isDemo: false,
+  supportedActions: ['ALLOW', 'MASK', 'BLOCK'],
+  supportedDetectors: ['WINDOW_HASH', 'SIGNATURE'],
+  supportedMatchTypes: ['TEXT_FRAGMENT', 'SIGNATURE_RULE'],
+  supportedScoreKinds: ['COVERAGE'],
+  showRecommendedAction: true,
+  showFailurePolicy: false,
+  canManageDocuments: true,
+  canManagePolicies: true,
+  authTitle: '관리자 인증',
+  authDescription: '관리자 권한을 확인한 뒤 로그인합니다.',
+  uploadDescription: '등록 후 분석이 끝나면 보호 시작',
+  uploadHint: '최대 20MB · PDF, DOCX, XLSX, HWP, HWPX',
+} as const;

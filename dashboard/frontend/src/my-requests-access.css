@@ -1,0 +1,15 @@
+/* 내 요청 기록의 접속 차단 안내(2026-10-12): 사유 칩은 길어질 수 있어 줄을 바꾸고, 관리자 안내는 작은 글씨로 */
+.dops-chip.dops-chip--wrap { white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
+.dops-my-note { margin: 4px 0 0; font-size: 12px; line-height: 1.5; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.dops-my-evidence .dops-my-note { margin: 0; font-size: 13px; color: var(--foreground); }
+/* 요청 ID(2026-10-12): 펼친 상세 맨 위 한 줄 + 복사 버튼, 첨부 파일의 다른 요청 ID는 제목 옆에 작게 */
+.dops-my-reqid { display: grid; gap: 4px; min-width: 0; }
+.dops-my-reqid-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; font-size: 13px; }
+.dops-my-reqid-label { font-weight: 700; }
+.dops-my-reqid-value, .dops-my-reqid-inline code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; user-select: all; }
+.dops-my-reqid-value { min-width: 0; padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--card); }
+.dops-my-reqid-hint { margin: 0; font-size: 12px; color: var(--muted-foreground); }
+.dops-my-reqid-manual { display: grid; gap: 4px; max-width: 520px; font-size: 12px; }
+.dops-my-reqid-manual input { font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--card); color: var(--foreground); }
+.dops-my-reqid-inline { margin-left: 8px; font-size: 12px; font-weight: 500; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.dops-my button.dops-my-reqid-copy:focus-visible, .dops-my-reqid-manual input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

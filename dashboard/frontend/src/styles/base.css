@@ -1,0 +1,325 @@
+/* 재설계 1단계 기본 규칙(설계안 3·4.10·5.2 방법 2). tokens.css 다음, legacy-island.css 앞에 불러온다.
+ * 모든 규칙은 이벤트 3화면 본문([data-ui='legacy']) 밖에만 맞는다. 옛 선택자의 값은 고치지 않고 새 규칙으로 덮는다.
+ *   :not([data-ui='legacy'] *)                           본문 안 요소 제외, 명시도 +1(일반 옛 규칙 .console-shell [data-slot='button'] 등까지 이김)
+ *   :where(:not([data-ui='legacy'] *))                    같은 제외, 명시도 0(같은 명시도의 옛 규칙만 순서로 이김 → 문맥별 옛 규칙은 그대로)
+ *   :not([data-ui='legacy'], [data-ui='legacy'] *)       본문 루트 자신까지 제외(7절 자동 생성 12px 규칙: 옛 선택자가 루트를 가리킬 수도 있어서)
+ * 화면별로 따로 정한 옛 모양(표 안 글자 링크 버튼 등)은 3단계에서 화면을 다시 만들 때 정리한다. */
+
+/* 1. 체크박스·라디오: 브라우저 기본 파랑 대신 브랜드 색(설계 3.2) */
+:where(input[type='checkbox'], input[type='radio']):where(:not([data-ui='legacy'] *)) { accent-color: var(--pg-brand); }
+
+/* 2. 버튼(components/ui/button.tsx): 모서리·글자는 부품 값(--pg-button-*), 주 버튼 그라디언트 없앰(설계 4.10) */
+[data-slot='button']:not([data-ui='legacy'] *) {
+  border-radius: var(--pg-button-radius);
+  font-size: var(--pg-button-text);
+  font-weight: var(--pg-button-weight);
+}
+[data-slot='button'].bg-primary:not([data-ui='legacy'] *) {
+  color: var(--pg-on-brand);
+  background: var(--pg-brand);
+  border-color: var(--pg-brand);
+  box-shadow: none;
+}
+[data-slot='button'].bg-primary:not([data-ui='legacy'] *):hover { background: var(--pg-brand-hover); border-color: var(--pg-brand-hover); }
+[data-slot='button'].border-border:where(:not([data-ui='legacy'] *)) {
+  color: var(--pg-text);
+  background: var(--pg-surface);
+  border-color: var(--pg-border-strong);
+  box-shadow: none;
+}
+[data-slot='button'].border-border:where(:not([data-ui='legacy'] *)):hover { background: var(--pg-surface-2); }
+/* 위험(차단·반려·보호 중지·비활성화·삭제)·위험 확정(확인창 안). 1단계는 변형만 만들고, 화면에 붙이는 것은 3단계 */
+[data-slot='button'].pg-button-danger:not([data-ui='legacy'] *) {
+  color: var(--pg-block);
+  background: var(--pg-surface);
+  border-color: color-mix(in srgb, var(--pg-block-solid) 50%, var(--pg-border));
+  box-shadow: none;
+}
+[data-slot='button'].pg-button-danger:not([data-ui='legacy'] *):hover { background: var(--pg-block-bg); }
+[data-slot='button'].pg-button-danger-solid:not([data-ui='legacy'] *) {
+  color: var(--pg-on-brand);
+  background: var(--pg-button-danger-fill);
+  border-color: var(--pg-button-danger-fill);
+  box-shadow: none;
+}
+
+/* 3. 입력칸·선택 상자·여러 줄 입력: 모서리·바탕·테두리·글자색 */
+:is([data-slot='input'], select, textarea):not([data-ui='legacy'] *) {
+  color: var(--pg-text);
+  background-color: var(--pg-surface);
+  border-color: var(--pg-border-strong);
+  border-radius: var(--pg-input-radius);
+}
+:is([data-slot='input'], input, textarea):not([data-ui='legacy'] *)::placeholder { color: var(--pg-text-3); }
+
+/* 4. 표(components/ui/table.tsx와 일반 표): 머리 바탕·글자, 칸 구분선 */
+:is(th, [data-slot='table-head']):not([data-ui='legacy'] *) {
+  color: var(--pg-text-2);
+  background-color: var(--pg-surface-2);
+  border-color: var(--pg-border);
+}
+:is(td, [data-slot='table-cell']):not([data-ui='legacy'] *) { border-color: var(--pg-border); }
+
+/* 5. 대화상자(components/ui/dialog.tsx). 포털로 열려 이벤트 범위 밖이다(설계 5.2 예외: 이벤트 상세의 접속 차단 대화상자도 새 모양) */
+[data-slot='dialog-content']:not([data-ui='legacy'] *) {
+  color: var(--pg-text);
+  background: var(--pg-surface);
+  border-radius: var(--pg-dialog-radius);
+  box-shadow: var(--pg-shadow-2);
+}
+[data-slot='dialog-content'] [data-slot='dialog-title']:not([data-ui='legacy'] *) { color: var(--pg-text); }
+[data-slot='dialog-content'] [data-slot='dialog-description']:not([data-ui='legacy'] *) { color: var(--pg-text-2); }
+[data-slot='dialog-footer']:not([data-ui='legacy'] *) {
+  background: var(--pg-surface-2);
+  border-color: var(--pg-border);
+  border-radius: 0 0 var(--pg-dialog-radius) var(--pg-dialog-radius);
+}
+
+/* 6. 차트(Recharts) 축 글자: 색은 차트 색 함수(src/utils/chartColors.ts)와 같은 값 */
+.recharts-cartesian-axis-tick-value:not([data-ui='legacy'] *) { fill: var(--pg-text-3); }
+/* 보안 현황 이벤트 추이 범례: 허용 막대와 같게 50% 투명(ALLOW_OPACITY, src/utils/chartColors.ts) */
+.console-chart-legend .console-tone-success:not([data-ui='legacy'] *) { opacity: .5; }
+
+/* 7. 최소 글자 12px(설계 3.3): 이벤트 화면도 쓰는 옛 규칙의 11px 이하 선언을 이벤트 범위 밖에서만 12px로 덮는다.
+ *    자동 생성(docs/design/dashboard-redesign-2026-10-13/stage1/font-min.mjs, 근거: 0단계 CSS 사용 범위). 손으로 고치지 말 것.
+ *    이벤트 화면이 안 쓰는 규칙은 원래 파일에서 값을 바로 12px로 고쳤다(같은 도구, 계획: stage1/font-min-plan.json). */
+/* font-min:start */
+/* src/access-block.css:9 font-size: 10px */
+.acc-identity.has-alias .acc-id:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/access-block.css:37 font-size: 11px */
+.acc-count:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/access-block.css:40 font-size: 11px */
+.acc-check small:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/access-block.css:43 font-size: 11px */
+.acc-preview strong:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:64 font-size: 11px */
+.console-refresh:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:69 font-size: 11px */
+.console-refresh [data-slot='button']:not([data-ui='legacy'], [data-ui='legacy'] *), .dops-gpu-control [data-slot='button']:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:204 font-size: 11px */
+.console-events-table .event-table-controls:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:205 font-size: 11px */
+.console-events-table .event-table-controls button:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:207 font-size: 11px */
+.console-events-table [data-slot='table-head']:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:214 font-size: 11px */
+.console-events-table [data-slot='table-cell']:first-child:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:219 font-size: 11px */
+.console-events-table .match-summary small:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:221 font-size: 11px */
+.console-events-table .table-document-empty:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:223 font-size: 11px */
+.console-events-table .badge:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:235 font-size: 10px */
+.console-operational-row dt:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:259 font-size: 11px */
+.console-request-summary dt:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:273 font-size: 11px */
+.event-detail-console .evidence-match-banner :is(p:not([data-ui='legacy'], [data-ui='legacy'] *), small):not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:286 font-size: 11px */
+:is(.event-detail-console:not([data-ui='legacy'], [data-ui='legacy'] *), .dops-evidence-row) .evidence-notice:not([data-ui='legacy'], [data-ui='legacy'] *), .event-detail-console .match-caption:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:302 font-size: 11px */
+.event-detail-console .detection-finding :is(dt:not([data-ui='legacy'], [data-ui='legacy'] *), small):not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:351 font-size: 11px */
+.console-data-page .panel-heading > span:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:373 font-size: 11px */
+.console-data-page :is(th:not([data-ui='legacy'], [data-ui='legacy'] *), [data-slot='table-head']):not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:376 font-size: 11px */
+.console-data-page :is(td:not([data-ui='legacy'], [data-ui='legacy'] *), [data-slot='table-cell']) .mono:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:377 font-size: 11px */
+.console-data-page :is(td:not([data-ui='legacy'], [data-ui='legacy'] *), [data-slot='table-cell']) time:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/console-system.css:562 font-size: 11px */
+.request-review-meta dt:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:31 font-size: 11px */
+.mono:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:104 font-size: 11px */
+.panel-heading > span:not([data-ui='legacy'], [data-ui='legacy'] *), .result-count:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:149 font-size: 11px */
+.filter-field > span:not([data-ui='legacy'], [data-ui='legacy'] *), .event-search > label:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:157 font-size: 11px */
+.filter-toolbar > span:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:161 font-size: 11px */
+.advanced-filter-toggle:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:176 font-size: 11px */
+[data-slot='table-head']:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:187 font-size: 11px */
+.events-table-scroll [data-slot='table-cell']:nth-child(2):not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:196 font-size: 10px */
+.match-summary small:not([data-ui='legacy'], [data-ui='legacy'] *), .document-name small:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:197 font-size: 9px */
+.badge:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:203 font-size: 11px */
+.incident-status:not([data-ui='legacy'], [data-ui='legacy'] *), .fingerprint-status:not([data-ui='legacy'], [data-ui='legacy'] *), .status-badge:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:205 font-size: 11px */
+.llm-badge:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:206 font-size: 11px */
+.pagination:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:228 font-size: 11px */
+.event-hero p:not(.eyebrow):not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:232 font-size: 11px */
+.back-link:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:234 font-size: 10px */
+.finding-heading > span:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:236 font-size: 11px */
+.detection-finding dt:not([data-ui='legacy'], [data-ui='legacy'] *), .detail-grid dt:not([data-ui='legacy'], [data-ui='legacy'] *), .rds-metadata-grid dt:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:317 font-size: 11px */
+@media (max-width: 800px) { .page-header > div > p:last-child:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; } }
+/* src/design-system.css:390 font-size: 11px */
+.presentation-focused .evidence-visual-comparison > .passage-explanation:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/design-system.css:463 font-size: 11px */
+.events-table-scroll .match-summary small:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/detection-ops.css:96 font-size: 11px */
+.dops-attach-tag:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/detection-ops.css:126 font-size: 11px */
+.dops-file-paper-label:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/detection-ops.css:127 font-size: 11.5px */
+.dops-file-hf:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:102 font-size: 11px */
+.eyebrow:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:439 font-size: 11px */
+.panel-heading > span:not([data-ui='legacy'], [data-ui='legacy'] *), .result-count:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:475 font-size: 10px */
+[data-slot='table-head']:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:518 font-size: 10px */
+.badge:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:549 font-size: 11px */
+.llm-badge:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:619 font-size: 11px */
+.event-search > label:not([data-ui='legacy'], [data-ui='legacy'] *), .filter-field > span:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:685 font-size: 11px */
+.pagination:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:747 font-size: 10px */
+.detail-grid dt:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1176 font-size: 10px */
+.page-header .eyebrow:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1295 font-size: 10px */
+[data-slot='table-head']:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1304 font-size: 11px */
+[data-slot='table-cell']:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1311 font-size: 9px */
+.badge:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1497 font-size: 10px */
+.incident-status:not([data-ui='legacy'], [data-ui='legacy'] *), .fingerprint-status:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1531 font-size: 11px */
+.match-summary strong:not([data-ui='legacy'], [data-ui='legacy'] *), .document-name strong:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1536 font-size: 9px */
+.match-summary small:not([data-ui='legacy'], [data-ui='legacy'] *), .document-name small:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1742 font-size: 11px */
+.incident-form label:not([data-ui='legacy'], [data-ui='legacy'] *), .incident-notes form:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1759 font-size: 11px */
+.incident-form p:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1806 font-size: 9px */
+.note-list small:not([data-ui='legacy'], [data-ui='legacy'] *), .empty-copy:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1839 font-size: 11px */
+.timeline-panel li strong:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1843 font-size: 9px */
+.timeline-panel li span:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1953 font-size: 11px */
+.passage-pair small:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1973 font-size: 10px */
+.evidence-position small:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1986 font-size: 11px */
+.evidence-source-tag:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1989 font-size: 11px */
+.evidence-document-sheet header p:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1991 font-size: 11px */
+.evidence-sheet-controls > span:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:1997 font-size: 10px */
+.evidence-paper-label:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/styles.css:2000 font-size: 10px */
+.evidence-paper footer:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v3.css:47 font-size: 11px */
+.console-shell .pagination:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v3.css:50 font-size: 11px */
+.console-shell .console-refresh:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:5 font-size: 11px */
+.console-shell .investigation-result > span:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:17 font-size: 11px */
+.console-shell .investigation-proof > small:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:22 font-size: 11px */
+.console-shell .investigation-context dt:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:30 font-size: 11px */
+.console-shell .investigation-identifiers :is(p:not([data-ui='legacy'], [data-ui='legacy'] *), .console-event-id):not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:32 font-size: 11px */
+.console-shell .investigation-identifiers .event-hero-badges:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:35 font-size: 11px */
+.console-shell .console-request-summary :is(dt:not([data-ui='legacy'], [data-ui='legacy'] *), dd):not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:41 font-size: 11px */
+.console-shell :is(.event-detail-console:not([data-ui='legacy'], [data-ui='legacy'] *), .dops-evidence-row) .rds-evidence-panel > .panel-heading > span:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:42 font-size: 11px */
+.console-shell :is(.event-detail-console:not([data-ui='legacy'], [data-ui='legacy'] *), .dops-evidence-row) .evidence-timing-strip:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:43 font-size: 11px */
+.console-shell .evidence-timing-strip strong:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:62 font-size: 11px */
+.console-shell .evidence-document-sheet .evidence-source-tag:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:77 font-size: 11px */
+.console-shell .signature-input-comparison > .evidence-match-banner p:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:83 font-size: 11px */
+.console-shell .mask-request-heading > span:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; }
+/* src/workbench-v31.css:117 font-size: 11px */
+@media (max-width: 600px) { .console-shell .evidence-showcase-score span:not([data-ui='legacy'], [data-ui='legacy'] *) { font-size: 12px; } }
+/* font-min:end */
+
+/* 8. 다크 모드 보정(임시, 4단계 "직접 쓴 색 → 디자인 값" 뒤 삭제).
+ *    옛 규칙이 색 코드를 직접 써서(흰 바탕·짙은 글자) 옛 변수 연결만으로는 다크에서 글자가 안 보이는 곳만 고친다.
+ *    대상은 stage1/contrast-audit.mjs(다크, 이벤트 범위 밖 전 화면·대화상자, 1440·390)가 3:1 미만으로 잡은 곳의 바탕·글자 규칙.
+ *    원래 선택자 + 범위(:not(...))라 명시도가 한 단계 높다. 라이트 모드에는 영향 없음.
+ *    2단계에서 지움: 상단 띠 관리자 이름(.admin-pill — 뼈대를 새로 만듦), 보호 상태(.protection-* — 새 배지로 바꿈),
+ *    보안 현황 첫 지표 숫자(.console-kpi-group … strong — 새 지표 카드), 옛 머리 설명(.page-header … p — 이벤트 화면만 남아 범위 밖) */
+@media (prefers-color-scheme: dark) {
+  /* 흰 바탕을 직접 쓴 표·목록·카드 → 카드 바탕 */
+  .console-shell :is(.table-scroll, .console-recent-scroll):not([data-ui='legacy'], [data-ui='legacy'] *),
+  .console-shell .traffic-console .performance-runs-table:not([data-ui='legacy'] *),
+  .clickable-row:not([data-ui='legacy'] *),
+  .login-card:not([data-ui='legacy'] *),
+  .sysst-rds-line:not([data-ui='legacy'] *),
+  .event-table-controls:not([data-ui='legacy'] *),
+  .performance-latest:not([data-ui='legacy'] *),
+  .review-link-manual:not([data-ui='legacy'] *),
+  .policy-principle:not([data-ui='legacy'] *) { background-color: var(--pg-surface); }
+  .clickable-row:not([data-ui='legacy'] *):is(:hover, :focus-visible),
+  .console-shell :is(.clickable-row, .asset-row):not([data-ui='legacy'] *):hover { background-color: var(--pg-surface-2); }
+  /* 옅은 회색·초록 기운 바탕을 직접 쓴 상자·칩 → 보조 바탕 */
+  .acc-chip:not([data-ui='legacy'] *),
+  .acc-preview:not([data-ui='legacy'] *),
+  .evidence-changes:not([data-ui='legacy'] *) { background-color: var(--pg-surface-2); }
+  .acc-reason:not([data-ui='legacy'] *),
+  .acc-badge--off:not([data-ui='legacy'] *) { background-color: var(--pg-surface-3); color: var(--pg-text-2); }
+  /* 짙은 글자색을 직접 쓴 곳 → 글자 값 */
+  .policy-principle:not([data-ui='legacy'] *),
+  .policy-principle strong:not([data-ui='legacy'] *),
+  .console-shell .investigation-context dd:not([data-ui='legacy'] *),
+  .console-shell .evidence-showcase-heading h4:not([data-ui='legacy'] *),
+  .console-shell .evidence-showcase-score strong:not([data-ui='legacy'] *),
+  .console-shell .mask-request-heading > h4:not([data-ui='legacy'] *) { color: var(--pg-text); }
+  .privacy-notice:not([data-ui='legacy'] *),
+  :is(.performance-method summary, .performance-comparison > summary):not([data-ui='legacy'] *),
+  .console-shell .document-detail-console .document-stage-explanation:not([data-ui='legacy'] *) { color: var(--pg-text-2); }
+  .console-shell :is(.status-badge, .incident-status):not([data-ui='legacy'] *) { color: var(--pg-neutral); }
+  .sysst-chip--unknown:not([data-ui='legacy'] *) { color: var(--pg-neutral); background: var(--pg-neutral-bg); }
+  /* 주의 안내(옅은 노랑 바탕 + 갈색 글자) → 주의 계열 */
+  .acc-hint:not([data-ui='legacy'] *) { color: var(--pg-mask); }
+  :is(.console-stale-notice, .gws-alert, .gws-warning, .sysst-notice):not([data-ui='legacy'] *) { color: var(--pg-mask); background: var(--pg-mask-bg); }
+  .sysst-notice--permission:not([data-ui='legacy'] *) { color: var(--pg-info); background: var(--pg-info-bg); }
+  /* 표 안 글자만 있는 조치 배지·탐지 방식·판정 근거 글자(옛 배지는 2단계 새 배지로 바뀜) */
+  .console-shell .badge-block:not([data-ui='legacy'] *),
+  .dops-error:not([data-ui='legacy'] *) { color: var(--pg-block); }
+  .console-shell .badge-mask:not([data-ui='legacy'] *) { color: var(--pg-mask); }
+  .console-shell .badge-allow:not([data-ui='legacy'] *) { color: var(--pg-allow); }
+  .console-shell :is(.badge-signature, .badge-window_hash, .badge-sha256, .badge-minhash):not([data-ui='legacy'] *) { color: var(--pg-neutral); }
+  :is(.match-summary strong, .document-name strong):not([data-ui='legacy'] *),
+  .console-shell .console-events-table .match-summary strong:not([data-ui='legacy'] *) { color: var(--pg-text); }
+  .audit-action:not([data-ui='legacy'] *) { color: var(--pg-text-2); background-color: var(--pg-surface-3); }
+  .console-shell .audit-console .audit-action:not([data-ui='legacy'] *) { background-color: transparent; }
+  .event-table-controls button:not([data-ui='legacy'] *) { background-color: var(--pg-surface); border-color: var(--pg-border-strong); }
+  /* 보조 글자 회색을 직접 쓴 곳(라이트 4.5:1 안팎, 다크 3.5~4.3:1) → 흐린 글자 값 */
+  :is(.performance-latest header p, .performance-latest-values dt, .performance-latest-values dd small, .performance-scope-note,
+    .performance-method, .performance-measurement-values dt, .performance-record-reference, .performance-row-id,
+    .performance-runs-table td:first-child > small, .period-control button,
+    .policy-principle span, .policy-principle p, .pagination, .passage-pair small, .evidence-source-tag,
+    .incident-status, .fingerprint-status, .status-badge):not([data-ui='legacy'] *),
+  .console-shell :is(.investigation-context dt, .overview-console .console-record-status, .overview-console .console-last-record):not([data-ui='legacy'] *) { color: var(--pg-text-3); }
+  .period-control button.active:not([data-ui='legacy'] *) { color: var(--pg-text); background: var(--pg-surface); }
+  /* 브랜드 초록을 글자로 쓴 곳(승인 대기 표시 등): 다크에서는 글자용 브랜드 값 */
+  :is(.dops-pending, .dops-chip--pending, .dops-kw-label--pending, .dops-my-brand, .dops-evidence summary, .dops-test-toggle):not([data-ui='legacy'] *) { color: var(--pg-brand-text); border-color: var(--pg-brand-text); }
+}

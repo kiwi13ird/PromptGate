@@ -1,0 +1,174 @@
+/* Final V3.1 finish: typography, neutral surfaces and evidence relationships only. */
+@font-face {
+  font-family: 'Pretendard Variable';
+  src: url('./assets/fonts/PretendardVariable.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 45 920;
+  font-display: swap;
+}
+
+:root {
+  --console-ui-font: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif;
+  --console-background: #f1f1f1;
+  --console-text: #222629;
+  --console-secondary: #696f74;
+  --console-border: #d3d5d7;
+  --background: var(--console-background);
+  --foreground: var(--console-text);
+  --secondary: #eceeee;
+  --secondary-foreground: #464c50;
+  --muted: #f3f4f4;
+  --muted-foreground: var(--console-secondary);
+  --accent: #edf1ee;
+  --border: var(--console-border);
+  --input: #ccd0d2;
+}
+
+body {
+  font-family: var(--console-ui-font);
+  font-variant-numeric: tabular-nums;
+  font-synthesis: none;
+  color: var(--console-text);
+}
+button, input, select, textarea { font-family: inherit; }
+.console-shell, .console-dialog { font-family: var(--console-ui-font); color: var(--console-text); }
+.console-shell :is(strong,b) { font-weight: 550; }
+.console-shell :is(.sidebar-brand strong,.sidebar a.active,.console-page-header h2,.panel-heading h3,.console-section-header h3,.workbench-attention h3),
+.console-dialog [data-slot='dialog-title'] { font-weight: 600; }
+.console-shell .console-page-header h2 { letter-spacing: -.02em; }
+.console-shell .investigation-lead > h2 { font-weight: 650; color: #202427; letter-spacing: -.025em; }
+.console-shell .investigation-result > strong { font-weight: 700; }
+.console-shell .investigation-result > b, .console-shell .investigation-proof > strong { font-weight: 600; }
+.console-shell .evidence-showcase-score strong { font-weight: 650; color: #222629; }
+.console-shell .investigation-context .investigation-document a { font-weight: 550; }
+.console-shell .overview-console .console-kpi-group .console-kpi strong { font-weight: 600; }
+.console-shell .audit-action { font-family: var(--console-ui-font); }
+.console-shell .audit-action { font-size: 12px; font-weight: 400; }
+.console-shell :is(.mono,code,.console-event-id) { font-family: var(--console-mono); font-weight: 400; }
+.console-shell .event-detail-console .investigation-lead > p { color: #41474c; }
+.console-shell :is(.investigation-identifiers p,.investigation-identifiers .console-event-id,.console-request-summary dt,.console-request-summary dd,.investigation-context dt,.investigation-proof small,.evidence-paper-label,.evidence-source-tag,.evidence-showcase-heading p,.mask-request-heading > span,.match-caption) { color: var(--console-secondary); }
+.console-shell :is(th,[data-slot='table-head']) { background: #e9ebec; color: #565d62; border-color: var(--console-border); font-weight: 500; }
+.console-shell :is(td,[data-slot='table-cell']) { border-color: #dedfe0; }
+.console-shell :is(.clickable-row,.asset-row):hover { background: #f3f5f4; }
+.console-shell :is(.console-operational-row > td,.audit-detail-row > td) { background: #f5f5f5; }
+.console-shell .event-detail-console .evidence-document-sheet { border-color: #c8cccf; border-top-color: #5c656c; }
+.console-shell .event-detail-console .evidence-document-sheet > header { background: #f6f6f6; border-bottom-color: var(--console-border); }
+.console-shell :is(.evidence-document-sheet h4,.mask-request-heading > h4,.evidence-showcase-heading h4) { color: #252a2d; font-weight: 600; }
+.console-shell .event-detail-console .evidence-document-text { font-family: var(--console-ui-font); color: #252a2d; font-weight: 400; }
+.console-shell .mask-request-heading { border-color: var(--console-border); }
+
+/* A small text relation, not a new diagram or panel. Only retained rewrite proof shows MASK. */
+.console-shell .evidence-transformation { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 8px 18px; margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: #535b60; }
+.console-shell .evidence-transformation strong { font-weight: 550; color: #906017; }
+.console-shell .evidence-correspondence-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.console-shell .evidence-correspondence-label strong { color: #535b60; font-weight: 550; }
+@media (max-width: 600px) {
+  .console-shell .evidence-transformation { gap: 6px 10px; justify-content: flex-start; font-size: 12px; }
+}
+
+/* Product completion: peripheral surfaces use the same workbench vocabulary.
+   Investigation result and evidence are intentionally untouched. */
+.login-shell, .full-not-found { background: var(--console-background); color: var(--console-text); font-family: var(--console-ui-font); }
+.login-shell { min-height: 100dvh; padding: 32px; }
+.login-card { width: min(100%, 480px); padding: 0; border: 1px solid var(--console-border); border-radius: 4px; background: #fff; box-shadow: none; overflow: hidden; }
+.login-identity { padding: 30px 32px 28px; background: #0b211b; color: #fff; }
+.login-identity .brand-mark { width: 36px; height: 36px; margin: 0 0 16px; border-radius: 0; background: transparent; box-shadow: none; }
+.login-identity .brand-mark svg { width: 32px; height: 32px; color: #b9d3c4; }
+.login-card .login-identity h1 { margin: 0; font-family: var(--console-ui-font); font-size: 28px; line-height: 1.25; font-weight: 600; letter-spacing: -.025em; color: #fff; }
+.login-product-description { margin: 9px 0 0; font-size: 13px; color: #b6c5be; }
+.login-workspace { padding: 28px 32px; }
+.login-workspace h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
+.login-workspace > .muted { font-size: 13px; color: var(--console-secondary); line-height: 1.65; }
+.login-form { margin-top: 24px; gap: 8px; }
+.login-form label { color: var(--console-text); font-size: 13px; font-weight: 500; }
+.login-form :is(input,button) { height: 40px; border-radius: 3px; font-size: 13px; }
+.login-form input { background: #fff; border-color: var(--console-border); color: var(--console-text); box-shadow: none; }
+.login-form button { margin-top: 12px; background: var(--console-brand); font-weight: 500; box-shadow: none; }
+.login-card .demo-note { margin-top: 24px; padding: 16px 0 0; border: 0; border-top: 1px solid var(--console-border); background: transparent; color: var(--console-secondary); font-size: 12px; line-height: 1.6; }
+.login-card .demo-note svg { width: 15px; height: 15px; color: var(--console-secondary); }
+.login-card .demo-note strong { font-weight: 500; }
+.full-not-found .not-found-card { max-width: 580px; padding: 32px; border: 0; border-left: 3px solid var(--console-brand); background: transparent; box-shadow: none; }
+.full-not-found .not-found-card h1 { font-family: var(--console-ui-font); font-size: 24px; font-weight: 600; color: var(--console-text); line-height: 1.45; }
+.full-not-found .not-found-card > p:not(.eyebrow) { color: var(--console-secondary); line-height: 1.7; }
+.full-not-found .not-found-card .not-found-brand { margin-bottom: 24px; font-size: 16px; font-weight: 600; color: var(--console-text); }
+.full-not-found .not-found-card a { font-weight: 500; color: var(--console-info); }
+.full-not-found .eyebrow { color: var(--console-secondary); }
+
+/* One visible focus treatment, not both a legacy input shadow and an outline. */
+:is(.console-shell,.console-dialog,.login-card) :is(input,select,textarea):focus { box-shadow: none; border-color: #75848b; }
+:is(.console-shell,.console-dialog,.login-card,.full-not-found) :is(a,button,input,select,textarea,summary):focus-visible { outline: 2px solid var(--console-info); outline-offset: 0; box-shadow: none; }
+.console-shell :is(.clickable-row,.asset-row):focus-visible { outline-offset: -2px; }
+.console-dialog .upload-zone:focus-within { outline: 2px solid var(--console-info); outline-offset: 2px; }
+.console-dialog .upload-zone input:focus-visible { outline: none; }
+.console-dialog .dialog-identifier { margin: 2px 0 0; font: 12px/1.6 var(--console-mono); color: var(--console-secondary); overflow-wrap: anywhere; }
+.console-dialog [data-slot='dialog-header'] { gap: 6px; }
+.console-dialog :is(input,select,textarea), .console-form-section > label { font-size: 13px; }
+.console-dialog .console-policy-summary { border: 0; background: transparent; padding: 0; }
+.console-dialog .console-form-section h3, .console-dialog .console-policy-summary h3 { color: var(--console-text); font-size: 13px; font-weight: 550; }
+.console-dialog .upload-zone { background: #f7f7f7; border-color: #bfc4c7; }
+.console-dialog .upload-zone svg { color: var(--console-secondary); }
+.console-dialog .security-copy { color: var(--console-secondary); line-height: 1.7; }
+.console-dialog .console-destructive-action { background: #b03934; color: #fff; border-color: #b03934; }
+.console-dialog .console-destructive-action:hover { background: #982e2a; }
+
+.console-shell .state-panel { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; text-align: left; gap: 6px; min-height: 120px; padding: 22px 20px; color: var(--console-text); background: #fff; }
+.console-shell .state-panel > strong { font-size: 14px; font-weight: 550; line-height: 1.5; }
+.console-shell .state-panel > p { margin: 0; max-width: 65ch; font-size: 12px; color: var(--console-secondary); line-height: 1.7; }
+.console-shell .state-panel.error { border-left: 2px solid #b03934; }
+.console-shell .state-panel.error > svg { width: 16px; height: 16px; margin-bottom: 4px; color: #b03934; }
+.console-shell .state-panel [data-slot='button'] { margin-top: 8px; }
+.console-dialog .state-panel { display: flex; flex-direction: column; justify-content: center; text-align: left; align-items: flex-start; min-height: 100px; padding: 20px 0; gap: 8px; }
+.console-dialog .state-panel > strong { font-size: 14px; font-weight: 550; }
+.console-dialog .state-panel > p { margin: 0; font-size: 12px; color: var(--console-secondary); line-height: 1.7; }
+.console-dialog .state-panel > svg { width: 16px; height: 16px; }
+.loading-panel { padding: 20px 0; gap: 12px; }
+.loading-caption { margin: 0 0 4px; color: var(--console-secondary); font-size: 13px; font-weight: 400; }
+.loading-row { height: 32px; width: 100%; background: #e3e5e5; border-radius: 2px; animation: none; }
+
+.console-shell .document-detail-console .detail-grid { padding: 12px 0; gap: 14px 24px; }
+.console-shell .document-detail-console .detail-grid > div { min-width: 0; padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+.console-shell .document-detail-console .detail-grid dd { font-size: 13px; color: var(--console-text); line-height: 1.65; }
+.console-shell .document-detail-console .document-stage-explanation { font-size: 12px; color: #50585d; line-height: 1.7; }
+.console-shell .document-detail-console .document-index-information .detail-grid { padding: 14px 0; }
+.console-shell .document-detail-console .console-page-header h2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.console-shell .document-detail-console .console-page-header > div:first-child { min-width: 0; }
+.console-shell .document-detail-console .console-metrics { border-top: 1px solid var(--console-border); border-bottom: 0; }
+.console-shell .audit-console .audit-detail-row > td { background: #f5f5f5; }
+.console-shell .audit-console .audit-change-details > div { background: transparent; border: 0; border-left: 1px solid var(--console-border); border-radius: 0; padding: 0 12px; }
+.console-shell .audit-console .audit-change-details dt { font-size: 12px; font-weight: 500; color: var(--console-text); }
+.console-shell .audit-console .audit-change-details dd { font-size: 13px; line-height: 1.7; }
+.console-shell .console-data-page .panel-heading > .metadata-note { background: transparent; border: 0; padding: 0; border-radius: 0; color: var(--console-secondary); font-size: 12px; font-weight: 400; letter-spacing: 0; }
+.console-shell .policies-console .policy-integration-note { display: none; }
+.console-shell .traffic-console .data-provenance > strong { background: transparent; padding: 0; border: 0; border-radius: 0; font-weight: 500; }
+.console-shell .traffic-console .performance-selectors label { font-weight: 400; font-size: 12px; }
+.console-shell .traffic-console .performance-selectors select { font-size: 13px; font-weight: 400; }
+.console-shell .traffic-console .performance-record-pair > section { padding: 14px 0; background: transparent; border: 0; border-radius: 0; border-top: 1px solid var(--console-border); }
+.console-shell .traffic-console .performance-runs-table th:not(:first-child) { text-align: right; }
+.console-shell .traffic-console .performance-runs-table td { font-size: 12px; }
+.console-shell .traffic-console .performance-latest-values dd { color: var(--console-text); font-weight: 550; }
+/* Operational details remain secondary to the approved evidence viewer. */
+.console-shell .event-detail-console .event-detail-disclosure { border: 0; border-top: 1px solid var(--console-border); border-radius: 0; background: transparent; box-shadow: none; }
+.console-shell .event-detail-console .event-detail-disclosure > summary { padding: 12px 0; border: 0; border-radius: 0; background: transparent; font-size: 12px; font-weight: 500; color: #50585d; }
+.console-shell .event-detail-console .incident-note-heading > svg { display: none; }
+.console-shell .event-detail-console .admin-disclosure :is(label,input,select,textarea) { font-size: 13px; font-weight: 400; }
+.console-shell .event-detail-console .admin-disclosure .workflow-empty { color: var(--console-secondary); background: transparent; border: 0; }
+.console-shell .event-detail-console .admin-disclosure .note-list > article { background: #fff; border-radius: 0; box-shadow: none; border: 0; border-top: 1px solid var(--console-border); }
+.console-shell .event-detail-console .admin-disclosure .note-list p { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.console-shell .event-detail-console .admin-disclosure .note-character-count { color: var(--console-secondary); }
+.console-shell .event-detail-console .admin-disclosure .timeline-panel strong { font-weight: 500; font-size: 13px; }
+/* Bound extreme filenames, not evidence text. The full name remains in the DOM/title. */
+.console-shell .investigation-context .investigation-document a,
+.console-shell .evidence-showcase-heading > div:first-child > h4,
+.console-shell .evidence-document-sheet > header > h4 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.console-shell .console-request-summary dt { flex-shrink: 0; white-space: nowrap; }
+.console-shell .evidence-document-text .evidence-empty-body { font-size: 13px; font-weight: 400; color: var(--console-secondary); }
+.console-shell .event-detail-console .signature-input-comparison .evidence-document-text { max-height: 420px; overflow-y: auto; overscroll-behavior: contain; }
+.console-shell .event-detail-console .signature-input-comparison .evidence-document-text:focus-visible { outline: 2px solid var(--console-info); outline-offset: 2px; }
+@media (max-width: 600px) {
+  .login-shell { padding: 16px; }
+  .login-identity, .login-workspace { padding: 24px; }
+  .login-card .login-identity h1 { font-size: 26px; }
+  .full-not-found .not-found-card { padding: 20px; }
+  .full-not-found .not-found-card h1 { font-size: 21px; }
+  .console-shell .state-panel { padding: 18px 14px; }
+}

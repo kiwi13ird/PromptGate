@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node", "vite/client"],
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "paths": {
+      "@/*": ["./*"],
+      "@runtime/gateway-api": ["./src/api/mockAdapter.ts"],
+      "@runtime/auth-adapter": ["./src/auth/mockAuthAdapter.ts"],
+      "@runtime/ui-mode": ["./src/config/uiMode.mock.ts"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "e2e/**/*.ts",
+    "e2e-real/**/*.ts",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "lib/**/*.ts",
+    "vite.config.ts",
+    "vite.local.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "playwright.real.config.ts"
+  ],
+  "exclude": ["node_modules"]
+}

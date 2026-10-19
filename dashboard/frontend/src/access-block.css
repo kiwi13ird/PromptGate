@@ -1,0 +1,84 @@
+/* 접속 차단(2026-10-12) 전용. 선택자는 acc- 접두어로 기존 화면과 겹치지 않게 하고, 색·글씨는 기존 콘솔 변수를 따른다. 전역 규칙은 건드리지 않는다. */
+
+/* 확장 프로그램 ID 표시: 별칭이 있으면 별칭 위, ID는 아래 작은 글씨 */
+.acc-identity { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 2px 6px; min-width: 0; max-width: 100%; }
+.acc-identity.has-alias { display: inline-grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; row-gap: 1px; }
+.acc-alias { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--console-text, #18211d); }
+.acc-id { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-pencil { flex: none; }
+.acc-identity.has-alias .acc-id { grid-column: 1; font-size: 10px; color: var(--console-secondary, #66736c); }
+.acc-identity.has-alias .acc-pencil { grid-column: 2; grid-row: 1 / span 2; }
+.acc-pencil { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--console-secondary, #66736c); cursor: pointer; }
+.acc-pencil:hover { background: #eef2ef; color: var(--console-text, #18211d); }
+.acc-pencil svg { width: 12px; height: 12px; }
+
+/* 연결 IP 표 '관리' 칸 */
+.acc-manage { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.acc-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; border-radius: 4px; background: #fdecec; color: #b4232d; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.acc-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.acc-badge--off { background: #f1f3f2; color: var(--console-secondary, #66736c); }
+
+/* 대화상자 */
+.acc-dialog { max-width: 560px; }
+.acc-form { display: grid; gap: 12px; margin-top: 4px; }
+.acc-target, .acc-field { display: grid; gap: 4px; font-size: 13px; }
+.acc-target { grid-template-columns: 88px minmax(0, 1fr); align-items: center; }
+.acc-label { font-size: 12px; font-weight: 600; color: var(--console-secondary, #66736c); }
+.acc-label small, .acc-fieldset legend small { font-weight: 400; }
+.acc-field textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--console-border, #dde3df); border-radius: 4px; font-size: 12px; resize: vertical; }
+.acc-fieldset { display: grid; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.acc-fieldset legend { padding: 0; font-size: 12px; font-weight: 600; color: var(--console-secondary, #66736c); }
+.acc-radios, .acc-chips { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.acc-radio { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; }
+.acc-chip { position: relative; display: inline-flex; align-items: center; padding: 5px 10px; border: 1px solid var(--console-border, #dde3df); border-radius: 999px; background: #fbfcfa; font-size: 12px; cursor: pointer; user-select: none; }
+.acc-chip input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.acc-chip.is-on { border-color: var(--console-info, #356fa8); background: #eaf2fa; color: #24527f; font-weight: 600; }
+.acc-chip:focus-within { outline: 2px solid var(--console-info, #356fa8); outline-offset: 1px; }
+.acc-count { justify-self: end; margin-top: -8px; font-size: 11px; color: var(--console-secondary, #66736c); font-variant-numeric: tabular-nums; }
+.acc-hint { margin: 0; font-size: 12px; color: #825b22; }
+.acc-check { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: 13px; cursor: pointer; }
+.acc-check small { font-size: 11px; color: var(--console-secondary, #66736c); }
+.acc-check.is-disabled { color: var(--console-secondary, #66736c); cursor: default; }
+.acc-preview { display: grid; gap: 3px; margin: 0; padding: 8px 10px; border: 1px dashed var(--console-border, #dde3df); border-radius: 4px; background: #fbfcfa; font-size: 12px; }
+.acc-preview strong { font-size: 11px; font-weight: 600; color: var(--console-secondary, #66736c); }
+.acc-preview p { margin: 0; overflow-wrap: anywhere; }
+.acc-summary { display: grid; gap: 8px; margin: 0; font-size: 13px; }
+.acc-summary div { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.acc-summary dt { color: var(--console-secondary, #66736c); }
+.acc-summary dd { margin: 0; overflow-wrap: anywhere; }
+
+/* 저장 뒤 반영 표시 */
+.acc-saved { display: grid; gap: 8px; }
+.acc-saved-title { margin: 0; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.acc-apply { display: grid; gap: 2px; margin: 0; padding: 8px 10px; border-radius: 4px; font-size: 12px; }
+.acc-apply strong { font-size: 13px; }
+.acc-apply small { font-size: 12px; opacity: .85; }
+.acc-apply--pending { background: #eaf2fa; color: #24527f; }
+.acc-apply--ok { background: #e8f5ee; color: #16805a; }
+
+/* 접속 차단 탭(/policies/access) */
+.acc-page { display: grid; gap: 14px; min-width: 0; }
+.acc-mode { display: grid; gap: 6px; padding: 12px 14px; }
+.acc-switch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.acc-switch input { width: 16px; height: 16px; }
+.acc-switch-state { font-size: 12px; font-weight: 600; }
+.acc-switch-state--on { color: #b4232d; }
+.acc-switch-state--off { color: var(--console-secondary, #66736c); }
+.acc-mode p { margin: 0; font-size: 12px; color: var(--console-secondary, #66736c); }
+.acc-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.acc-toolbar label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.acc-rules-table td { vertical-align: top; font-size: 12px; }
+.acc-rules-table td small { display: block; margin-top: 2px; font-size: 12px; color: var(--console-secondary, #66736c); }
+.acc-rules-table .acc-memo { max-width: 220px; overflow-wrap: anywhere; }
+.acc-rules-table .acc-public { display: block; width: fit-content; margin-top: 3px; padding: 1px 6px; border-radius: 4px; background: #fff3dc; color: #825b22; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.acc-rules-table tr.is-inactive td { color: var(--console-secondary, #66736c); }
+.acc-reasons { display: flex; flex-wrap: wrap; gap: 3px; }
+.acc-reason { padding: 1px 6px; border-radius: 4px; background: #f1f3f2; font-size: 12px; white-space: nowrap; }
+.acc-confirm-lines { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 13px; line-height: 1.6; }
+
+/* 보안 이벤트 상세 */
+.acc-event-control { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+
+@media (max-width: 640px) {
+  .acc-target, .acc-summary div { grid-template-columns: minmax(0, 1fr); }
+}

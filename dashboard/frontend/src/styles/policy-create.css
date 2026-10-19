@@ -1,0 +1,49 @@
+/* 탐지 정책 생성 2단계·수정·처리 방식 선택(2026-10-15, docs/design/policy-ui-2026-10-15.md 3절).
+   새 클래스(pg-polc-*)만 정의한다 — 기존 클래스·이벤트 3화면 규칙은 건드리지 않는다. 색은 --pg-* 값만 써서 다크 모드를 따른다. */
+
+.pg-polc-dialog { width: min(620px, calc(100vw - 32px)); }
+.pg-polc-step { margin: 2px 0 0; color: var(--pg-brand-text); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); font-weight: var(--pg-w-bold); }
+
+.pg-polc-targets, .pg-polc-actions { min-width: 0; margin: 0; padding: 0; border: 0; }
+.pg-polc-legend { margin: 0 0 8px; padding: 0; color: var(--pg-text); font-size: var(--pg-t-sm); font-weight: var(--pg-w-bold); }
+.pg-polc-group + .pg-polc-group { margin-top: 14px; }
+.pg-polc-group-title { margin: 0 0 6px; color: var(--pg-text); font-size: var(--pg-t-sm); font-weight: var(--pg-w-bold); }
+.pg-polc-group-title span { color: var(--pg-text-3); font-weight: var(--pg-w-regular); }
+
+.pg-polc-options { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.pg-polc-option { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 8px 10px; border: 1px solid var(--pg-border); border-radius: var(--pg-radius-sm); background: var(--pg-surface); color: var(--pg-text); cursor: pointer; }
+.pg-polc-option:hover { border-color: var(--pg-border-strong); }
+.pg-polc-option[data-checked='true'] { border-color: var(--pg-brand); background: var(--pg-brand-soft); }
+.pg-polc-option[data-disabled='true'] { background: var(--pg-surface-2); color: var(--pg-text-3); cursor: not-allowed; }
+.pg-polc-option input[type='radio'] { flex: none; width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--pg-brand); }
+.pg-polc-option:has(input:focus-visible) { outline: 2px solid var(--pg-focus); outline-offset: 2px; }
+.pg-polc-actions:disabled .pg-polc-option { cursor: not-allowed; opacity: .72; }
+.pg-polc-option-text { display: grid; gap: 2px; min-width: 0; }
+.pg-polc-option-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-weight: var(--pg-w-bold); }
+.pg-polc-option[data-disabled='true'] .pg-polc-option-name { font-weight: var(--pg-w-semibold); }
+.pg-polc-option-desc { color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); overflow-wrap: anywhere; }
+/* 1단계 대상 목록은 한 줄(이름 왼쪽 · 코드 오른쪽, 좁으면 줄바꿈)로 촘촘하게 */
+.pg-polc-option.pg-polc-target { align-items: center; padding: 6px 10px; }
+.pg-polc-option.pg-polc-target input[type='radio'] { margin: 0; }
+.pg-polc-target .pg-polc-option-text { display: flex; flex: 1; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 12px; }
+.pg-polc-code { color: var(--pg-text-3); font-family: var(--pg-mono); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); overflow-wrap: anywhere; }
+
+.pg-polc-note { margin: 0; color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.pg-polc-actions .pg-polc-note { margin-top: 8px; }
+.pg-polc-warn { margin: 8px 0 0; padding: var(--pg-space-2) var(--pg-space-3); border-radius: var(--pg-radius-sm); background: var(--pg-block-bg); color: var(--pg-block); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.pg-polc-warn b { margin-right: 4px; }
+
+.pg-polc-selected { margin: 0; color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); overflow-wrap: anywhere; }
+.pg-polc-summary { padding: var(--pg-space-2) var(--pg-space-3); border-left: 2px solid var(--pg-info); background: var(--pg-surface-2); color: var(--pg-text); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); overflow-wrap: anywhere; }
+.pg-polc-summary b { margin-right: 4px; }
+
+/* 처리 방식 목록 못 불러옴 띠의 [다시 시도] · 펼침의 부분 마스킹 규칙·폴백 표시 */
+.pg-polc-retry { margin-left: 4px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+.pg-polc-retry:disabled { cursor: default; text-decoration: none; opacity: .75; }
+.console-shell .pg-pol-entities > p.pg-polc-rules { margin: 6px 0 0; color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); overflow-wrap: anywhere; }
+.pg-polc-rules b { margin-right: 4px; color: var(--pg-text); }
+.console-shell .pg-pol-detail-row small.pg-polc-fallback { display: inline; margin: 0; color: var(--pg-text-3); font-size: var(--pg-t-xs); }
+
+@media (max-width: 480px) {
+  .pg-polc-option { padding: 8px; gap: 8px; }
+}

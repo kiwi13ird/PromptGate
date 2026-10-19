@@ -1,0 +1,61 @@
+/* 시스템 상태 화면(2026-10-12) 전용. 기존 CSS 순서(main.tsx)를 건드리지 않도록 페이지에서 불러오고,
+   선택자는 모두 sysst- 접두어다. 표·패널 모양은 .console-data-page의 기존 규칙을 그대로 쓰고 칸 너비·상태 칩만 더한다. */
+
+/* 상태 칩: 글자색·바탕 모두 본문 대비 4.5:1 이상 */
+.sysst-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.5; white-space: nowrap; }
+.sysst-chip i { width: 6px; height: 6px; flex: none; border-radius: 50%; background: currentColor; }
+.sysst-chip--ok { color: #11694a; background: #e8f4ee; }
+.sysst-chip--slow { color: #8a5a0a; background: #fff4de; }
+.sysst-chip--down { color: #b0302d; background: #fdeceb; }
+.sysst-chip--unknown { color: #53616c; background: #eef1ef; }
+
+/* 상단 요약 줄(.console-record-status 재사용)의 점 색 */
+.sysst-dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: #8c9891; }
+.sysst-dot--ok { background: var(--console-success); }
+.sysst-dot--slow { background: var(--console-warning); }
+.sysst-dot--down { background: var(--console-danger); }
+.sysst-dot--unknown { background: #8c9891; }
+
+.sysst-muted { color: var(--console-secondary); }
+.sysst-name { font-weight: 550; color: var(--console-text); }
+/* 펼칠 세부 정보가 없는 구성 요소 이름도 펼치기 버튼의 글자 위치(화살표 폭만큼)에 맞춘다 */
+.sysst-components-table .sysst-name { margin-left: 18px; }
+
+/* 구성 요소 이름 = 펼치기 버튼 */
+.sysst-toggle { display: inline-flex; align-items: center; gap: 4px; margin: -2px 0 -2px -4px; padding: 2px 4px; border: 0; border-radius: 4px; background: transparent; color: var(--console-text); font: inherit; font-weight: 550; text-align: left; cursor: pointer; }
+.sysst-toggle:hover { background: #edf2ef; }
+.sysst-toggle:focus-visible { outline: 2px solid var(--console-info); outline-offset: 1px; }
+.sysst-toggle svg { width: 14px; height: 14px; flex: none; color: var(--console-secondary); }
+
+/* 펼친 세부 정보 */
+.console-data-page .sysst-detail-row > td { padding: 12px 16px 14px 28px; background: #f8faf9; }
+.sysst-details { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 20px; margin: 0; }
+.sysst-details dt { font-size: 12px; color: var(--console-secondary); }
+.sysst-details dd { margin: 3px 0 0; font-size: 12px; color: var(--console-text); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+/* 표 칸 너비 · 머리글은 내용과 같이 왼쪽 정렬 */
+.sysst-table th { text-align: left; }
+.sysst-components-table th:nth-child(1) { width: 20%; }
+.sysst-components-table th:nth-child(2) { width: 12%; }
+.sysst-components-table th:nth-child(3) { width: 52%; }
+.sysst-components-table th:nth-child(4) { width: 16%; }
+.sysst-instances-table th:nth-child(1) { width: 14%; }
+.sysst-instances-table th:nth-child(2) { width: 22%; }
+.sysst-instances-table th:nth-child(3) { width: 22%; }
+.sysst-instances-table th:nth-child(4) { width: 14%; }
+.sysst-instances-table th:nth-child(5) { width: 28%; }
+.sysst-table code { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sysst-components-table td:nth-child(4) { font-variant-numeric: tabular-nums; }
+.sysst-checks { display: flex; flex-direction: column; gap: 2px; }
+
+/* AWS 조회 안내(권한 없음·응답 없음) */
+.sysst-notice { margin: 0; padding: 10px 16px; font-size: 12px; border-left: 3px solid var(--console-warning); background: #fff7e8; color: #825b22; }
+.sysst-notice--permission { border-left-color: var(--console-info); background: #edf4fa; color: #274f75; }
+
+/* RDS 한 줄 */
+.sysst-rds-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0; padding: 14px 16px; font-size: 12px; background: #fff; border-block: 1px solid var(--console-border); }
+
+/* 좁은 화면: 표 안에서만 가로 스크롤 */
+@media (max-width: 800px) {
+  .sysst-page .sysst-table { min-width: 640px; }
+}

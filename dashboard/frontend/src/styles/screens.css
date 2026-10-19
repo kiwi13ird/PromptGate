@@ -1,0 +1,623 @@
+/* 재설계 3단계 화면별 배치(설계 5장). components.css 다음, legacy-island.css 앞에 불러온다(main.tsx). 확장 '내 요청 기록'은 불러오지 않는다.
+ * - 클래스는 모두 pg- 접두. 이벤트 3화면 본문은 이 파일의 클래스를 쓰지 않는다(설계 5.2).
+ * - 화면 CSS(detection-ops.css 등)는 지연 로드되어 이 파일보다 뒤에 붙는다 → 같은 명시도면 그쪽이 이긴다.
+ *   그래서 규칙은 .console-shell 아래 클래스 2~3개로 쓴다(옛 base.css 12px 규칙 [data-slot]:not(...) 0,2,0 도 이긴다).
+ * - 값은 디자인 값(--pg-*)만 쓴다. 절 번호 = 3단계 화면 번호(3a 문서별 키워드 …). */
+
+/* ───────── 0. 공통: 화면 틀·지표 부품(증감 칩·누적 가로 막대·분할 막대·작은 막대 그림) ───────── */
+.console-shell .pg-screen { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--pg-space-4); min-width: 0; color: var(--pg-text); }
+.console-shell .pg-screen > .pg-page-header { margin: 0; }
+.console-shell .pg-card {
+  min-width: 0;
+  border: 1px solid var(--pg-border);
+  border-radius: var(--pg-radius-md);
+  background: var(--pg-surface);
+  box-shadow: var(--pg-shadow-1);
+}
+.console-shell .pg-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--pg-space-3); min-height: 48px; padding: var(--pg-space-3) var(--pg-space-4); border-bottom: 1px solid var(--pg-border); }
+.console-shell .pg-card-title { margin: 0; color: var(--pg-text); font-size: var(--pg-t-lg); line-height: var(--pg-lh-lg); font-weight: var(--pg-w-bold); }
+.console-shell .pg-card-note { color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-card-head > .pg-card-head-end, .console-shell .pg-card-foot > .pg-card-head-end { margin-left: auto; }
+.console-shell .pg-card-head-end { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--pg-space-2); margin-left: auto; }
+.console-shell .pg-card-body { padding: var(--pg-space-4); }
+.console-shell .pg-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--pg-space-3); padding: 10px var(--pg-space-4); border-top: 1px solid var(--pg-border); color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-card-foot a { color: var(--pg-brand-text); font-weight: var(--pg-w-semibold); text-decoration: none; }
+.console-shell .pg-card-foot a:hover { text-decoration: underline; }
+.console-shell .pg-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pg-space-4); min-width: 0; }
+.console-shell .pg-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--pg-space-4); min-width: 0; }
+.console-shell .pg-grid-2-1 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--pg-space-4); min-width: 0; }
+@media (max-width: 1100px) { .console-shell .pg-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 800px) {
+  .console-shell .pg-grid-2, .console-shell .pg-grid-3, .console-shell .pg-grid-2-1 { grid-template-columns: minmax(0, 1fr); }
+  .console-shell .pg-card-head { padding: var(--pg-space-3); }
+  .console-shell .pg-card-body { padding: var(--pg-space-3); }
+}
+.console-shell .pg-card .recharts-cartesian-grid line { stroke: var(--pg-border); }   /* 옛 design-system.css의 밝은 격자색(#edf1eb)이 다크에서 흰 줄로 보임 */
+.console-shell .pg-muted { color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-num { font-variant-numeric: tabular-nums; }
+
+/* 증감 칩 "▲ 12 · 63%" (지표 부품 1) */
+.console-shell .pg-delta { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border-radius: var(--pg-radius-full); background: var(--pg-neutral-bg); color: var(--pg-neutral); font-size: var(--pg-t-xs); line-height: 1; font-weight: var(--pg-w-semibold); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.console-shell .pg-delta--block { background: var(--pg-block-bg); color: var(--pg-block); }
+.console-shell .pg-delta--mask { background: var(--pg-mask-bg); color: var(--pg-mask); }
+.console-shell .pg-delta--allow { background: var(--pg-allow-bg); color: var(--pg-allow); }
+
+/* 누적 가로 막대(지표 부품 2): 줄마다 이름 | 막대(계열 조각) | 건수. 줄을 누르면 이동(링크) */
+.console-shell .pg-hbars { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.console-shell .pg-hbar { display: grid; grid-template-columns: minmax(96px, 34%) minmax(0, 1fr) auto; align-items: center; gap: var(--pg-space-3); min-height: 32px; padding: 4px 6px; border-radius: var(--pg-radius-sm); color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); text-decoration: none; }
+.console-shell .pg-hbars a.pg-hbar { color: var(--pg-text); text-decoration: none; }
+.console-shell .pg-hbars a.pg-hbar:hover { background: var(--pg-surface-2); color: var(--pg-text); }
+.console-shell .pg-hbars a.pg-hbar:hover .pg-hbar-label { color: var(--pg-brand-text); text-decoration: underline; }
+.console-shell a.pg-hbar:focus-visible { outline: 2px solid var(--pg-focus); outline-offset: 1px; }
+.console-shell .pg-hbar-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console-shell .pg-hbar-track { display: flex; height: 10px; overflow: hidden; border-radius: var(--pg-radius-full); background: var(--pg-surface-3); }
+.console-shell .pg-hbar-seg { display: block; height: 100%; min-width: 2px; }
+.console-shell .pg-hbar-value { min-width: 36px; text-align: right; font-weight: var(--pg-w-bold); font-variant-numeric: tabular-nums; }
+.console-shell .pg-hbar-value small { margin-left: 4px; color: var(--pg-text-3); font-size: var(--pg-t-xs); font-weight: var(--pg-w-regular); }
+.console-shell .pg-fill--block { background: var(--pg-block-solid); }
+.console-shell .pg-fill--mask { background: var(--pg-mask-solid); }
+.console-shell .pg-fill--allow { background: var(--pg-allow-solid); }
+.console-shell .pg-fill--allow-soft { background: color-mix(in srgb, var(--pg-allow-solid) 50%, transparent); }
+.console-shell .pg-fill--info { background: var(--pg-info-solid); }
+.console-shell .pg-fill--neutral { background: var(--pg-neutral-solid); }
+.console-shell .pg-legend { display: flex; flex-wrap: wrap; gap: 4px var(--pg-space-3); margin: 0; padding: 0; color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); list-style: none; }
+.console-shell .pg-legend li { display: inline-flex; align-items: center; gap: 5px; }
+.console-shell .pg-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.console-shell .pg-legend b { color: var(--pg-text); font-variant-numeric: tabular-nums; }
+
+/* 분할 막대(지표 부품 3): 한 줄 전체를 비율로 나눔 + 범례 */
+.console-shell .pg-split { display: grid; gap: var(--pg-space-2); }
+.console-shell .pg-split-track { display: flex; gap: 2px; height: 12px; overflow: hidden; border-radius: var(--pg-radius-full); background: var(--pg-surface-3); }
+.console-shell .pg-split-track > span { display: block; height: 100%; }
+
+/* 작은 막대 그림(지표 부품 4): 세로 막대 n개 + 아래 눈금. 막대 폭 24px 이하(설계 4.9), 설정 대기 시간 자리 점선(has-limit) */
+.console-shell .pg-minibars { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; min-width: 0; margin: 0; }   /* 2026-10-14: 열을 1fr로 — 자동 열이면 눈금 글자 합만큼 넓어져 390px에서 화면 밖으로 밀림(막대 25개) */
+.console-shell .pg-minibars-plot { display: flex; align-items: stretch; gap: 6px; min-width: 0; border-bottom: 1px solid var(--pg-border); }
+.console-shell .pg-minibar { position: relative; flex: 1 1 0; min-width: 0; height: 100%; }
+.console-shell .pg-minibar-col { position: absolute; inset: 16px 0 0; }
+.console-shell .pg-minibar-fill { position: absolute; bottom: 0; left: 50%; width: min(24px, 100%); border-radius: 3px 3px 0 0; transform: translateX(-50%); }
+.console-shell .pg-minibar-value { position: absolute; left: 0; right: 0; margin-bottom: 2px; color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); font-weight: var(--pg-w-semibold); text-align: center; font-variant-numeric: tabular-nums; }
+.console-shell .pg-minibar.has-limit::after { content: ""; position: absolute; top: 0; bottom: 0; right: -4px; border-right: 2px dashed var(--pg-mask-solid); }
+.console-shell .pg-minibars-axis { display: flex; gap: 6px; color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-minibars-axis > span { position: relative; flex: 1 1 0; min-width: 0; height: var(--pg-lh-xs); white-space: nowrap; }
+.console-shell .pg-minibars-tick { position: absolute; top: 0; left: 50%; transform: translateX(-50%); }   /* 2026-10-14: 칸보다 넓은 눈금 글자도 가운데 기준으로 다 보이게 */
+.console-shell .pg-minibars-foot { color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-minibars-title { color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); font-weight: var(--pg-w-semibold); }
+
+/* 지표 카드 안 큰 숫자 + 사유 줄(보안 현황 ②, 트래픽 ②) */
+.console-shell .pg-bignum { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--pg-space-2); }
+.console-shell .pg-bignum b { font-size: var(--pg-t-num); line-height: var(--pg-lh-num); font-weight: var(--pg-w-bold); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.console-shell .pg-bignum--mask b { color: var(--pg-mask); }
+.console-shell .pg-bignum--allow b { color: var(--pg-allow); }
+.console-shell .pg-bignum--block b { color: var(--pg-block); }
+.console-shell .pg-bignum span { color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-bignum .pg-bignum-of { color: var(--pg-text-3); font-size: var(--pg-t-xs); }   /* 분모(2026-10-14) */
+.console-shell .pg-rows { display: grid; gap: 0; margin: var(--pg-space-3) 0 0; padding: 0; }
+.console-shell .pg-rows > div { display: flex; align-items: center; gap: var(--pg-space-3); min-height: 32px; border-top: 1px solid var(--pg-border); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-rows dt { flex: 1; min-width: 0; color: var(--pg-text-2); }
+.console-shell .pg-rows dd { display: inline-flex; gap: 6px; margin: 0; }
+.console-shell .pg-setting-line { margin: var(--pg-space-3) 0 0; color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-setting-line b { color: var(--pg-text); font-weight: var(--pg-w-semibold); }
+
+/* 행 조치 ⋯ 메뉴(설계 4.5·4.10) */
+.console-shell .pg-row-actions { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.console-shell .pg-row-menu { position: relative; display: inline-flex; }
+.pg-menu-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  z-index: 55;
+  min-width: 168px;
+  padding: 4px;
+  border: 1px solid var(--pg-border);
+  border-radius: var(--pg-radius-md);
+  background: var(--pg-surface);
+  box-shadow: var(--pg-shadow-2);
+  color: var(--pg-text);
+  font-family: var(--pg-font);
+  outline: none;
+}
+.pg-menu-item {
+  display: flex;
+  width: 100%;
+  border: 0;
+  background: none;
+  color: var(--pg-text);
+  font-family: inherit;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: var(--pg-radius-sm);
+  font-size: var(--pg-t-sm);
+  line-height: var(--pg-lh-sm);
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+}
+.console-shell .pg-menu-item:is(:hover, :focus-visible) { background: var(--pg-surface-2); color: var(--pg-text); text-decoration: none; }
+.console-shell .pg-menu-item:focus-visible { outline: 2px solid var(--pg-focus); outline-offset: -2px; }
+.console-shell .pg-menu-item:disabled { color: var(--pg-text-3); cursor: default; }
+.console-shell .pg-menu-item--danger, .console-shell .pg-menu-item--danger:is(:hover, :focus-visible) { color: var(--pg-block); }
+.pg-menu-item--danger { color: var(--pg-block); }
+.pg-menu-item svg { width: 15px; height: 15px; }
+.console-shell .pg-menu-popup .pg-menu-item { color: var(--pg-text); }
+.console-shell .pg-menu-popup .pg-menu-item--danger { color: var(--pg-block); }
+@media (max-width: 800px) { .pg-menu-item { min-height: 40px; } }
+
+/* ───────── 3a. 문서별 키워드(설계 5.5, 목업 keywords.html) ───────── */
+.console-shell .pg-kw-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--pg-space-2) var(--pg-space-4); }
+.console-shell .pg-segment-option b { margin-left: 5px; font-weight: var(--pg-w-bold); font-variant-numeric: tabular-nums; }
+.console-shell .pg-kw-facts { display: flex; flex-wrap: wrap; gap: 2px 6px; margin: 0; color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-kw-facts b { color: var(--pg-text); font-variant-numeric: tabular-nums; }
+.console-shell .pg-kw-facts > span + span::before { content: "· "; color: var(--pg-text-3); }
+.console-shell .pg-kw-notice { margin: 0; padding: var(--pg-space-2) var(--pg-space-3); border-radius: var(--pg-radius-sm); background: var(--pg-mask-bg); color: var(--pg-mask); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-kw-cards { display: grid; gap: var(--pg-space-4); min-width: 0; }
+.console-shell .pg-kw-card { min-width: 0; overflow: hidden; border: 1px solid var(--pg-border); border-radius: var(--pg-radius-md); background: var(--pg-surface); box-shadow: var(--pg-shadow-1); }
+.console-shell .pg-kw-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--pg-space-3); padding: var(--pg-space-3) var(--pg-space-4); border-bottom: 1px solid var(--pg-border); }
+.console-shell .pg-kw-doc-name { margin: 0; min-width: 0; color: var(--pg-text); font-size: var(--pg-t-lg); line-height: var(--pg-lh-lg); font-weight: var(--pg-w-bold); overflow-wrap: anywhere; }
+.console-shell .pg-kw-doc-counts { color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-kw-doc-counts b { color: var(--pg-info); font-weight: var(--pg-w-bold); }
+.console-shell .pg-kw-card-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--pg-space-2); margin-left: auto; }
+.console-shell .pg-kw-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--pg-space-3); padding: 10px var(--pg-space-4); border-top: 1px solid var(--pg-border); }
+.console-shell .pg-kw-muted { color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-kw-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; min-width: 0; max-width: 100%; }
+.console-shell .pg-kw-chips .pg-badge { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.console-shell .pg-badge > small { margin-left: 4px; }
+.console-shell .pg-kw-card > .pg-empty { padding: var(--pg-space-4); }
+
+/* 후보 표: 넓을 때도 격자(키워드 | 이유·근거 | 숫자 2칸 위아래 | 조치), 좁으면(표 자리 720px 이하) 세로 카드 */
+.console-shell .pg-kw-table.pg-table, .console-shell .pg-kw-table.pg-table > tbody { display: block; width: 100%; min-width: 0; }
+.console-shell .pg-kw-table > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.console-shell .pg-kw-table tbody tr.pg-kw-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr) 148px auto;
+  grid-template-areas: "kw reason c1 act" "kw reason c2 act";
+  grid-template-rows: min-content 1fr;
+  align-items: start;
+  gap: var(--pg-space-2) var(--pg-space-4);
+  height: auto;
+  padding: var(--pg-space-4);
+  border-bottom: 1px solid var(--pg-border);
+  box-shadow: none;
+}
+.console-shell .pg-kw-table tbody tr.pg-kw-row:last-child { border-bottom: 0; }
+.console-shell .pg-kw-table tbody tr.pg-kw-row::before { content: none; display: none; }
+.console-shell .pg-kw-table tbody tr.pg-kw-row > td { display: block; min-width: 0; height: auto; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; white-space: normal; text-align: left; color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-kw-table tbody tr.pg-kw-row > td.pg-kw-cell-keyword { grid-area: kw; display: grid; gap: 6px; }
+.console-shell .pg-kw-table tbody tr.pg-kw-row > td.pg-kw-cell-reason { grid-area: reason; display: grid; gap: 6px; }
+.console-shell .pg-kw-table tbody tr.pg-kw-row > td.pg-kw-cell-count:nth-child(3) { grid-area: c1; }
+.console-shell .pg-kw-table tbody tr.pg-kw-row > td.pg-kw-cell-count:nth-child(4) { grid-area: c2; }
+.console-shell .pg-kw-table tbody tr.pg-kw-row > td.pg-kw-cell-actions { grid-area: act; display: grid; justify-items: end; gap: 6px; }
+.console-shell .pg-kw-keyword { color: var(--pg-text); font-size: var(--pg-t-lg); line-height: var(--pg-lh-lg); font-weight: var(--pg-w-bold); overflow-wrap: anywhere; }
+.console-shell .pg-kw-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.console-shell .pg-kw-reason { margin: 0; color: var(--pg-text); font-size: var(--pg-t-md); line-height: var(--pg-lh-md); }
+.console-shell .pg-kw-label { margin-right: 6px; color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-kw-evidence { display: grid; gap: 4px; margin: 0; color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-kw-evidence > p { margin: 0; padding: 6px 10px; border-left: 3px solid var(--pg-border-strong); border-radius: 0 var(--pg-radius-sm) var(--pg-radius-sm) 0; background: var(--pg-surface-2); color: var(--pg-text); word-break: keep-all; overflow-wrap: anywhere; }
+.console-shell .pg-kw-evidence mark { padding: 0 2px; border-radius: 2px; background: var(--pg-mark); color: var(--pg-mark-text); font-weight: var(--pg-w-bold); }
+.console-shell .pg-kw-more { justify-self: start; padding: 0; border: 0; background: none; color: var(--pg-brand-text); font: inherit; font-size: var(--pg-t-xs); font-weight: var(--pg-w-semibold); cursor: pointer; }
+.console-shell .pg-kw-more:hover { text-decoration: underline; }
+.console-shell .pg-kw-caution { margin: 0; color: var(--pg-mask); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-weight: var(--pg-w-semibold); }
+/* 2026-10-16 일반 표현(여러 보호 문서에 나옴) 짧은 안내: 승인 키워드 표·칩 옆 */
+.console-shell .pg-kw-generic-note { display: block; margin-top: 2px; color: var(--pg-mask); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); font-weight: 500; }
+.console-shell .pg-kw-chips .pg-kw-generic-note { display: inline; margin: 0 0 0 4px; }
+.console-shell .pg-kw-check { margin: 0; color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-kw-count { display: flex; align-items: center; justify-content: space-between; gap: var(--pg-space-2); min-height: 36px; padding: 6px 10px; border-radius: var(--pg-radius-sm); background: var(--pg-surface-2); color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-kw-count b { color: var(--pg-text); font-size: var(--pg-t-lg); line-height: var(--pg-lh-lg); font-weight: var(--pg-w-bold); font-variant-numeric: tabular-nums; }
+.console-shell .pg-kw-count.is-warn { background: var(--pg-mask-bg); color: var(--pg-mask); }
+.console-shell .pg-kw-count.is-warn b { color: var(--pg-mask); }
+.console-shell .pg-kw-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.console-shell .pg-kw-actions [data-slot='button'] { min-width: 60px; }
+.console-shell .pg-kw-meta { color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); text-align: right; }
+.console-shell .pg-kw-edit { width: 100%; }
+@container pg-table (max-width: 720px) {
+  .console-shell .pg-kw-table tbody tr.pg-kw-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "kw kw" "reason reason" "c1 c2" "act act";
+    grid-template-rows: none;
+    gap: 10px;
+    padding: var(--pg-space-4) 14px;
+  }
+  .console-shell .pg-kw-table tbody tr.pg-kw-row > td.pg-kw-cell-keyword { grid-template-columns: minmax(0, 1fr); }
+  .console-shell .pg-kw-table tbody tr.pg-kw-row > td.pg-kw-cell-actions { justify-content: stretch; justify-items: stretch; }
+  .console-shell .pg-kw-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .console-shell .pg-kw-actions [data-slot='button'] { min-width: 0; height: 40px; padding-inline: 8px; font-size: var(--pg-t-sm); }
+  .console-shell .pg-kw-meta { text-align: left; }
+}
+
+/* 키워드 관리(승인된 키워드 표 + 직접 추가) */
+.console-shell .pg-kw-manage { display: grid; gap: var(--pg-space-3); padding: var(--pg-space-3) var(--pg-space-4); border-top: 1px solid var(--pg-border); background: var(--pg-surface-2); }
+.console-shell .pg-kw-manage-row > td { padding: 0; background: var(--pg-surface-2); }
+.console-shell .pg-kw-manage .pg-kw-manage { border-top: 0; }
+.console-shell .pg-kw-manage .pg-table-wrap { overflow: hidden; border: 1px solid var(--pg-border); border-radius: var(--pg-radius-sm); background: var(--pg-surface); }
+.console-shell .pg-kw-add { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pg-space-2); }
+.console-shell .pg-kw-add [data-slot='input'] { flex: 1 1 220px; max-width: 320px; }
+.console-shell .pg-kw-add label { display: inline-flex; align-items: center; gap: 6px; color: var(--pg-text); font-size: var(--pg-t-sm); }
+.console-shell .pg-kw-row-actions { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+
+/* 보통 표(대기 없는 문서·승인된 키워드): 머리 36, 행 44~56, 본문 13px(설계 4.5) */
+.console-shell :is(.pg-kw-rest-table, .pg-kw-approved-table).pg-table { table-layout: auto; }
+.console-shell :is(.pg-kw-rest-table, .pg-kw-approved-table) [data-slot='table-head'] { height: 36px; padding: 0 var(--pg-space-3); background: var(--pg-surface-2); color: var(--pg-text-2); font-size: var(--pg-t-xs); font-weight: var(--pg-w-bold); }
+.console-shell :is(.pg-kw-rest-table, .pg-kw-approved-table) [data-slot='table-cell'] { height: 48px; padding: 8px var(--pg-space-3); color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); white-space: normal; }
+.console-shell :is(.pg-kw-rest-table, .pg-kw-approved-table) .pg-kw-col-actions { text-align: right; }
+.console-shell :is(.pg-kw-rest-table, .pg-kw-approved-table) td[data-card='actions'] { text-align: right; }
+.console-shell .pg-kw-rest-name { color: var(--pg-text); font-weight: var(--pg-w-semibold); overflow-wrap: anywhere; }
+.console-shell .pg-kw-rest-table td small { display: block; }
+.console-shell .pg-kw-rest-approved { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.console-shell .pg-kw-rest-table tbody tr.pg-kw-manage-row:hover { background: none; }
+@container pg-table (max-width: 720px) {
+  .console-shell :is(.pg-kw-rest-table, .pg-kw-approved-table) [data-slot='table-cell'] { height: auto; padding: 0; }
+  .console-shell .pg-kw-rest-table tbody tr.pg-kw-manage-row { padding: 0; }
+  .console-shell .pg-kw-rest-table tbody tr.pg-kw-manage-row::before { content: none; }
+}
+@media (max-width: 800px) {
+  .console-shell .pg-kw-toolbar { display: grid; }
+  .console-shell .pg-kw-toolbar .pg-segment { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-self: stretch; }
+  .console-shell .pg-kw-toolbar .pg-segment-option { justify-content: center; }
+  .console-shell .pg-kw-card-head { padding: var(--pg-space-3) 14px; }
+  .console-shell .pg-kw-card-actions { width: 100%; margin-left: 0; }
+  .console-shell .pg-kw-card-actions [data-slot='button'], .console-shell .pg-kw-row-actions [data-slot='button'] { height: 36px; }
+  .console-shell .pg-kw-card-foot { padding: 10px 14px; }
+}
+
+/* ───────── 3b. 보안 현황(설계 5.1, 목업 overview.html) ───────── */
+.console-shell .pg-stale { margin: 0; padding: var(--pg-space-2) var(--pg-space-3); border-radius: var(--pg-radius-sm); background: var(--pg-mask-bg); color: var(--pg-mask); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-strip-facts b { color: var(--pg-text); font-weight: var(--pg-w-bold); }
+.console-shell .pg-strip-scope { color: var(--pg-text-3); }
+.console-shell .pg-kpi-group .pg-kpi-bar { display: block; margin-top: var(--pg-space-2); }
+.console-shell .pg-kpi-group .pg-kpi-bar .pg-split-track { height: 8px; }
+.console-shell a.pg-card-link, .console-shell .pg-card-head a { color: var(--pg-brand-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-weight: var(--pg-w-semibold); text-decoration: none; }
+.console-shell .pg-card-head a:hover { text-decoration: underline; }
+.console-shell .pg-ov-chart { height: 260px; min-width: 0; }
+.console-shell .pg-ov-chart-note { margin: var(--pg-space-2) 0 0; }
+/* 2026-10-15 카드 단위·따로 센 접속 차단 한 줄(지표 4칸 바로 아래) */
+.console-shell .pg-ov-unit-note { margin: 0; color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); overflow-wrap: anywhere; }
+.console-shell .pg-ov-unit-note a { color: var(--pg-brand-text); font-weight: var(--pg-w-semibold); text-decoration: none; }
+.console-shell .pg-ov-unit-note a:hover { text-decoration: underline; }
+.console-shell .pg-ov-trend .pg-card-head-end { gap: var(--pg-space-3); }
+.console-shell .pg-ov-recent-card { display: flex; flex-direction: column; overflow: hidden; }
+.console-shell .pg-ov-recent-card > .pg-table-wrap { overflow: visible; }
+.console-shell .pg-ov-recent td[data-card='title'] a { color: var(--pg-text); font-weight: var(--pg-w-semibold); text-decoration: none; }
+.console-shell .pg-ov-recent td[data-card='title'] a:hover { color: var(--pg-brand-text); text-decoration: underline; }
+.console-shell .pg-ov-recent td[data-card='info'] a { color: var(--pg-brand-text); text-decoration: none; }
+.console-shell .pg-ov-recent td[data-card='info'] a + a::before { content: ", "; color: var(--pg-text-3); }
+.console-shell .pg-ov-recent td[data-card='info'] a:hover { text-decoration: underline; }
+@container pg-table (max-width: 720px) {
+  .console-shell .pg-ov-recent tbody tr { padding: 10px var(--pg-space-4); }
+  .console-shell .pg-ov-recent td[data-card='info'] { font-size: var(--pg-t-xs); }
+}
+.console-shell .pg-ov-metric { display: flex; flex-direction: column; }
+.console-shell .pg-ov-metric > .pg-card-body { flex: 1; }
+.console-shell .pg-ov-metric .pg-card-foot { justify-content: space-between; }
+.console-shell .pg-rows dd a { color: var(--pg-brand-text); text-decoration: none; }
+.console-shell .pg-rows dd b { color: var(--pg-text); font-weight: var(--pg-w-bold); }
+.console-shell .pg-rows dd a b { color: inherit; }
+.console-shell .pg-ov-insights { align-items: stretch; }
+.console-shell .pg-ov-insights > .pg-card { display: flex; flex-direction: column; }
+.console-shell .pg-ov-insights .ov-card-body { display: grid; gap: var(--pg-space-2); align-content: start; }
+.console-shell .pg-ov-insights .ov-bars li, .console-shell .pg-ov-insights .ov-mix li { font-size: var(--pg-t-sm); }
+.console-shell .pg-ov-insights .ov-sub, .console-shell .pg-ov-insights .ov-note { color: var(--pg-text-3); }
+.console-shell .pg-ov-insights .ov-keys { color: var(--pg-text-2); }
+.console-shell .pg-ov-heat-note { grid-column: 1 / -1; margin: 0; padding: var(--pg-space-3) var(--pg-space-4); color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-span-2 { grid-column: 1 / -1; }
+@media (max-width: 800px) {
+  .console-shell .pg-ov-activity > .pg-ov-recent-card { order: -1; }   /* 모바일: 띠 → 지표 → 최근 이벤트 → 추이(설계 5.1) */
+  .console-shell .pg-ov-chart { height: 200px; }
+  .console-shell .pg-card-head-end { margin-left: 0; }
+  .console-shell .pg-ov-trend .pg-card-head-end { width: 100%; justify-content: space-between; }
+}
+
+/* ───────── 3c. 트래픽 및 성능(설계 5.9, 목업 traffic.html) ───────── */
+.console-shell .pg-tr-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--pg-space-4); min-width: 0; }
+.console-shell .pg-tr-workspace[hidden] { display: none; }
+.console-shell .pg-strip-subject { margin-right: 4px; color: var(--pg-text); font-weight: var(--pg-w-bold); }
+.console-shell .pg-kpi-group .pg-kpi-sub b { color: var(--pg-text-2); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-kpi-group > article.pg-kpi { cursor: default; }
+/* 지표 정리(2026-10-14): 두 묶음(지금 Gateway · 선택 기간 저장 기록) — 묶음 머리에 기준(실시간·기간)과 표본 수 */
+.console-shell .pg-tr-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--pg-space-3); min-width: 0; }
+.console-shell .pg-tr-group > .pg-kpi-group { margin: 0; }
+.console-shell .pg-tr-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--pg-space-3); min-width: 0; }
+.console-shell .pg-tr-group-head h2 { margin: 0; color: var(--pg-text); font-size: var(--pg-t-md); line-height: var(--pg-lh-md); font-weight: var(--pg-w-bold); }
+.console-shell .pg-tr-group-head .pg-muted { color: var(--pg-text-2); }
+.console-shell .pg-tr-group-head b { color: var(--pg-text); font-weight: var(--pg-w-semibold); font-variant-numeric: tabular-nums; }
+.console-shell .pg-tr-basis { margin: 0; color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-tr-basis summary { width: fit-content; color: var(--pg-text-2); font-weight: var(--pg-w-semibold); cursor: pointer; }
+.console-shell .pg-tr-basis dl { display: grid; gap: 6px; max-width: 1040px; margin: var(--pg-space-2) 0 0; padding: var(--pg-space-3); border: 1px solid var(--pg-border); border-radius: var(--pg-radius-md); background: var(--pg-surface); }
+.console-shell .pg-tr-basis dl > div { display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr); gap: 2px var(--pg-space-3); }
+.console-shell .pg-tr-basis dt { color: var(--pg-text); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-tr-basis dd { margin: 0; }
+@media (max-width: 800px) { .console-shell .pg-tr-basis dl > div { grid-template-columns: minmax(0, 1fr); } }
+.console-shell .pg-tr-meaning { margin: 0 0 var(--pg-space-2); color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-tr-meaning b { color: var(--pg-text); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-tr-headline { margin: 0 0 var(--pg-space-2); color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-tr-headline b { font-weight: var(--pg-w-bold); font-variant-numeric: tabular-nums; }
+.console-shell .pg-tr-few { margin: 0 0 var(--pg-space-2); padding: 6px 10px; border-left: 3px solid var(--pg-mask-solid); border-radius: var(--pg-radius-sm); background: var(--pg-surface-2); color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-tr-chart { height: 220px; min-width: 0; padding: 0; }
+.console-shell .pg-tr-chart.traffic-chart--empty { height: auto; }
+.console-shell .pg-tr-dist-card .pg-card-body { display: grid; gap: var(--pg-space-3); align-content: start; }
+.console-shell .pg-tr-dist-card .pg-tr-meaning { margin: 0; }
+.console-shell .pg-tr-dist-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px var(--pg-space-2); margin: 0 0 4px; font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-tr-dist-card .pg-minibars-axis { font-size: 11px; }
+.console-shell .pg-tr-reasons { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.console-shell .pg-tr-dist-card, .console-shell .pg-tr-uninspected, .console-shell .pg-tr-trend { display: flex; flex-direction: column; }
+.console-shell :is(.pg-tr-dist-card, .pg-tr-uninspected, .pg-tr-trend) > .pg-card-body { flex: 1; }
+.console-shell :is(.pg-tr-dist-card, .pg-tr-uninspected) .pg-card-foot { justify-content: space-between; }
+.console-shell .partial-data-warning { margin: 0; padding: 0; border: 0; background: none; }
+
+/* 연결 중인 IP 표(7열, 표→카드) */
+.console-shell .pg-tr-ips { overflow: hidden; }
+.console-shell .pg-card-notice { margin: var(--pg-space-3) var(--pg-space-4) 0; }
+.console-shell .pg-card-count { padding: var(--pg-space-2) var(--pg-space-4) 0; }
+.console-shell .pg-tr-ips .pg-pager { padding: var(--pg-space-2) var(--pg-space-4); }
+.console-shell .pg-tr-ip-table.pg-table { table-layout: auto; }
+.console-shell .pg-tr-ip-table [data-slot='table-head'] { height: 36px; padding: 0 var(--pg-space-3); background: var(--pg-surface-2); color: var(--pg-text-2); font-size: var(--pg-t-xs); font-weight: var(--pg-w-bold); }
+.console-shell .pg-tr-ip-table [data-slot='table-cell'] { height: 56px; padding: 8px var(--pg-space-3); color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); white-space: normal; vertical-align: middle; }
+.console-shell .pg-tr-ip-table .pg-num { text-align: right; }
+.console-shell .pg-tr-ip-table .pg-tr-ip-manage { text-align: right; }
+.console-shell .pg-tr-ip-target { min-width: 200px; }
+.console-shell .pg-tr-ip-who { display: grid; justify-items: start; gap: 2px; min-width: 0; max-width: 100%; }
+/* 첫 줄 IP(주 표시) · 둘째 줄 별칭 · 확장 프로그램 ID(작은 글씨) */
+.console-shell .pg-tr-ip-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.console-shell .pg-tr-ip-addr { font-family: var(--pg-mono); font-size: var(--pg-t-sm); font-weight: var(--pg-w-semibold); color: var(--pg-text); }
+.console-shell .pg-tr-ip-multi { color: var(--pg-text-2); font-size: var(--pg-t-xs); white-space: nowrap; }
+.console-shell .pg-tr-ip-sub { display: flex; align-items: center; gap: 2px 6px; min-width: 0; max-width: 100%; color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-tr-ip-alias { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pg-text); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-tr-ip-alias + .pg-tr-ip-id::before { content: '·'; margin-right: 6px; color: var(--pg-text-3); }
+.console-shell .pg-tr-ip-id { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--pg-mono); font-size: var(--pg-t-xs); color: var(--pg-text-2); }
+.console-shell .pg-tr-ip-noid { color: var(--pg-text-2); }
+.console-shell .pg-tr-ip-sub .acc-pencil { flex: none; }
+.console-shell .pg-tr-ip-status { min-width: 150px; }
+.console-shell .pg-tr-ip-status .pg-badge + .pg-badge { margin-left: 4px; }
+.console-shell .pg-tr-ip-status small { display: block; margin-top: 3px; color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+@container pg-table (max-width: 720px) {
+  .console-shell .pg-tr-ip-table [data-slot='table-cell'] { height: auto; padding: 0; }
+  .console-shell .pg-tr-ip-table tbody tr { padding: var(--pg-space-3) var(--pg-space-4); }
+  .console-shell .pg-tr-ip-table .pg-num { text-align: left; }
+  .console-shell .pg-tr-ip-target { min-width: 0; }
+  .console-shell .pg-tr-ip-status { min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+  .console-shell .pg-tr-ip-status .pg-badge + .pg-badge { margin-left: 0; }
+  .console-shell .pg-tr-ip-status small { margin-top: 0; }
+  .console-shell .pg-tr-ip-table td.pg-tr-ip-manage .pg-muted { font-size: var(--pg-t-xs); }
+}
+@media (max-width: 800px) {
+  .console-shell .pg-tr-chart { height: 200px; }
+}
+.console-shell :is(.pg-screen, .pg-tr-workspace) > .pg-kpi-group { margin: 0; }
+
+/* ───────── 3d. 시스템 상태(설계 5.10, 목업 system.html) ───────── */
+.console-shell .pg-sys-counts { display: inline-flex; flex-wrap: wrap; gap: 0 10px; color: var(--pg-text-2); }
+.console-shell .pg-sys-counts b { color: var(--pg-text); font-variant-numeric: tabular-nums; }
+.console-shell .pg-sys-group { display: grid; gap: var(--pg-space-2); min-width: 0; }
+.console-shell .pg-sys-group-title { margin: 0; color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-sys-problems { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pg-space-4); margin: 0; padding: 0; list-style: none; }
+.console-shell .pg-sys-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 0; overflow: hidden; list-style: none; }
+.console-shell .pg-sys-item { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 14px var(--pg-space-4); }
+.console-shell .pg-sys-grid > .pg-sys-item { border-right: 1px solid var(--pg-border); border-bottom: 1px solid var(--pg-border); margin: 0 -1px -1px 0; }
+.console-shell .pg-sys-item--big { padding: var(--pg-space-4) var(--pg-space-5); border: 1px solid var(--pg-border); border-radius: var(--pg-radius-md); background: var(--pg-surface); box-shadow: var(--pg-shadow-1); }
+.console-shell .pg-sys-item--big[data-tone='block'] { box-shadow: inset 3px 0 0 var(--pg-block-solid), var(--pg-shadow-1); }
+.console-shell .pg-sys-item--big[data-tone='mask'] { box-shadow: inset 3px 0 0 var(--pg-mask-solid), var(--pg-shadow-1); }
+.console-shell .pg-sys-item-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--pg-space-2); min-width: 0; }
+.console-shell .pg-sys-item-head .pg-badge { margin-left: auto; }
+.console-shell .pg-sys-item--big .pg-sys-item-head .pg-badge { margin-left: 0; }
+.console-shell .pg-sys-name { min-width: 0; padding: 0; border: 0; background: none; color: var(--pg-text); font: inherit; font-size: var(--pg-t-md); line-height: var(--pg-lh-md); font-weight: var(--pg-w-bold); text-align: left; overflow-wrap: anywhere; }
+.console-shell .pg-sys-item--big .pg-sys-name { font-size: var(--pg-t-lg); line-height: var(--pg-lh-lg); }
+.console-shell button.pg-sys-open { cursor: pointer; text-decoration: underline; text-decoration-color: var(--pg-border-strong); text-underline-offset: 3px; }
+.console-shell button.pg-sys-open:hover { color: var(--pg-brand-text); text-decoration-color: currentColor; }
+.console-shell .pg-sys-open:focus-visible, .console-shell .pg-sys-more:focus-visible { outline: 2px solid var(--pg-focus); outline-offset: 2px; border-radius: 2px; }
+.console-shell .pg-sys-more { margin-left: auto; padding: 0; border: 0; background: none; color: var(--pg-brand-text); font: inherit; font-size: var(--pg-t-sm); font-weight: var(--pg-w-semibold); cursor: pointer; }
+.console-shell .pg-sys-summary { margin: 0; color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); overflow-wrap: anywhere; }
+.console-shell .pg-sys-item--big .pg-sys-summary { color: var(--pg-text); font-size: var(--pg-t-md); line-height: var(--pg-lh-md); }
+.pg-sys-details { display: grid; gap: var(--pg-space-3); margin: 0; }
+.pg-sys-details > div { display: grid; gap: 2px; padding-bottom: var(--pg-space-2); border-bottom: 1px solid var(--pg-border); }
+.pg-sys-details dt { color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); font-weight: var(--pg-w-semibold); }
+.pg-sys-details dd { margin: 0; color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.console-shell .pg-sys-notice { margin: 0; padding: 10px var(--pg-space-4); border-bottom: 1px solid var(--pg-border); background: var(--pg-mask-bg); color: var(--pg-mask); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-sys-notice--permission { background: var(--pg-info-bg); color: var(--pg-info); }
+.console-shell .pg-sys-ec2 { overflow: hidden; }
+.console-shell .pg-sys-ec2-table.pg-table { table-layout: auto; }
+.console-shell .pg-sys-ec2-table [data-slot='table-head'] { height: 36px; padding: 0 var(--pg-space-3); background: var(--pg-surface-2); color: var(--pg-text-2); font-size: var(--pg-t-xs); font-weight: var(--pg-w-bold); text-align: left; }
+.console-shell .pg-sys-ec2-table [data-slot='table-cell'] { height: 44px; padding: 8px var(--pg-space-3); color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); white-space: normal; }
+.console-shell .pg-sys-ec2-table code { display: inline; font-family: var(--pg-mono); font-size: var(--pg-t-xs); color: var(--pg-text-2); }
+.console-shell .pg-sys-role { font-weight: var(--pg-w-bold); }
+.console-shell .pg-sys-checks { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.console-shell .pg-sys-rds-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--pg-space-3); margin: 0; padding: var(--pg-space-3) var(--pg-space-4); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+@container pg-table (max-width: 720px) {
+  .console-shell .pg-sys-ec2-table [data-slot='table-cell'] { height: auto; padding: 0; }
+}
+@media (max-width: 1100px) { .console-shell .pg-sys-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 800px) {
+  .console-shell .pg-sys-problems, .console-shell .pg-sys-grid { grid-template-columns: minmax(0, 1fr); }
+  .console-shell .pg-sys-item--big { padding: var(--pg-space-3) var(--pg-space-4); }
+}
+
+/* ───────── 3f-1. 탐지 정책(설계 5.6) ───────── */
+.console-shell .pg-pol-guide { color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-pol-guide summary { width: fit-content; cursor: pointer; }
+.console-shell .pg-pol-guide p { margin: 4px 0 0; color: var(--pg-text-2); }
+.console-shell .pg-pol-card { overflow: visible; }
+.console-shell :is(.pg-pol-table, .pg-acc-table, .pg-rep-table).pg-table { table-layout: auto; }
+.console-shell :is(.pg-pol-table, .pg-acc-table, .pg-rep-table, .pg-pol-history) [data-slot='table-head'] { height: 36px; padding: 0 var(--pg-space-3); background: var(--pg-surface-2); color: var(--pg-text-2); font-size: var(--pg-t-xs); font-weight: var(--pg-w-bold); text-align: left; }
+.console-shell :is(.pg-pol-table, .pg-acc-table, .pg-rep-table) [data-slot='table-cell'] { height: 56px; padding: 8px var(--pg-space-3); color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); white-space: normal; vertical-align: middle; }
+.console-shell :is(.pg-pol-table, .pg-acc-table, .pg-rep-table) .pg-num { text-align: right; }
+.console-shell .pg-pol-col-actions, .console-shell .pg-pol-table td[data-card='actions'] { text-align: right; }
+.console-shell .pg-pol-name { min-width: 200px; }
+.console-shell .pg-pol-target { display: block; color: var(--pg-text); font-weight: var(--pg-w-bold); }
+.console-shell .pg-pol-meta { display: flex; flex-wrap: wrap; gap: 0 8px; margin-top: 2px; color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-pol-meta .mono { font-family: var(--pg-mono); }
+.console-shell .pg-pol-sub { display: block; color: var(--pg-text-3); font-size: var(--pg-t-xs); }
+.console-shell .pg-pol-detail-toggle { margin-top: 2px; font-size: var(--pg-t-xs); }
+.console-shell .pg-pol-detail-toggle summary { width: fit-content; color: var(--pg-brand-text); cursor: pointer; }
+.console-shell .pg-pol-detail-row > td { padding: 10px var(--pg-space-4) 12px; background: var(--pg-surface-2); }
+.console-shell .pg-pol-detail-row dl { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
+.console-shell .pg-pol-detail-row dt { color: var(--pg-text-3); font-size: var(--pg-t-xs); }
+.console-shell .pg-pol-detail-row dd { margin: 2px 0 0; color: var(--pg-text); font-size: var(--pg-t-sm); overflow-wrap: anywhere; }
+.console-shell .pg-pol-detail-row small { display: block; margin-top: 8px; color: var(--pg-text-3); font-size: var(--pg-t-xs); }
+/* 정책 펼침 '탐지 항목'(2026-10-13): 운영 Detection 인식기 기준 목록 */
+.console-shell .pg-pol-entities { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--pg-border); }
+.console-shell .pg-pol-entities-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 0 0 6px; font-size: var(--pg-t-sm); }
+.console-shell .pg-pol-entities-head span { color: var(--pg-text-2); font-size: var(--pg-t-xs); }
+.console-shell .pg-pol-entities ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.console-shell .pg-pol-entities > p:not(.pg-pol-entities-head) { margin: 0; color: var(--pg-text); font-size: var(--pg-t-sm); }
+.console-shell .pg-pol-entities > p.pg-pol-entities-note { margin-top: 6px; color: var(--pg-text-2); font-size: var(--pg-t-xs); }
+.console-shell .pg-row-selected > td { background: var(--pg-brand-soft); }
+.pg-pol-example { display: block; margin-top: 4px; color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.pg-confirm-id { margin: 0; color: var(--pg-text-3); font-family: var(--pg-mono); font-size: var(--pg-t-xs); }
+.pg-pol-history [data-slot='table-cell'] { padding: 8px 10px; font-size: var(--pg-t-sm); }
+@container pg-table (max-width: 720px) {
+  .console-shell :is(.pg-pol-table, .pg-acc-table, .pg-rep-table) [data-slot='table-cell'] { height: auto; padding: 0; }
+  .console-shell .pg-pol-name { min-width: 0; }
+  .console-shell .pg-pol-detail-row { padding: 0; }
+  .console-shell .pg-pol-detail-row > td { padding: var(--pg-space-3) var(--pg-space-4); }
+  .pg-pol-history [data-slot='table-cell'] { padding: 0; }
+}
+
+/* ───────── 3f-2. Gateway 처리(설계 5.7) ─────────
+ * 한 행 = [항목 160px][처리·대기 칸][결과(검사 가능 글자 수, 굵게 14px)]. 저장 줄은 화면 아래 고정 */
+.console-shell .pg-gws .gws-form { display: grid; gap: var(--pg-space-4); }
+.console-shell .pg-gws .gws-body { display: grid; gap: 0; padding: 0; }
+.console-shell .pg-gws .gws-row { display: grid; grid-template-columns: 160px minmax(0, auto) minmax(0, 1fr); align-items: center; gap: 6px var(--pg-space-4); min-height: 56px; padding: 10px var(--pg-space-4); border-bottom: 1px solid var(--pg-border); }
+.console-shell .pg-gws .gws-row:last-of-type { border-bottom: 0; }
+.console-shell .pg-gws .gws-row-label { padding: 0; color: var(--pg-text); font-size: var(--pg-t-md); line-height: var(--pg-lh-md); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-gws .gws-field { color: var(--pg-text-2); font-size: var(--pg-t-sm); }
+.console-shell .pg-gws .gws-field select { height: var(--pg-control-h); min-width: 120px; padding: 0 8px; border: 1px solid var(--pg-border-strong); border-radius: var(--pg-radius-sm); background: var(--pg-surface); color: var(--pg-text); font-size: var(--pg-t-sm); }
+.console-shell .pg-gws .gws-notes { grid-column: 3; color: var(--pg-text-2); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-gws .gws-result { color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+.console-shell .pg-gws .gws-result strong { color: var(--pg-text); font-size: var(--pg-t-md); font-weight: var(--pg-w-bold); font-variant-numeric: tabular-nums; }
+.console-shell .pg-gws .gws-result-note { display: block; color: var(--pg-text-3); font-size: var(--pg-t-xs); line-height: var(--pg-lh-xs); }
+.console-shell .pg-gws .gws-input-error { color: var(--pg-block); }
+.console-shell .pg-gws .gws-fixed-note { margin: 0; padding: 10px var(--pg-space-4); border-top: 1px solid var(--pg-border); color: var(--pg-text-3); font-size: var(--pg-t-xs); }
+.console-shell .pg-gws .gws-card > .gws-body > .gws-check { padding: var(--pg-space-3) var(--pg-space-4); color: var(--pg-text); font-size: var(--pg-t-sm); }
+.console-shell .pg-gws .gws-alert { border-left: 3px solid var(--pg-mask-solid); border-radius: var(--pg-radius-sm); background: var(--pg-mask-bg); color: var(--pg-mask); font-size: var(--pg-t-sm); }
+.console-shell .pg-strip .pg-strip-main { color: var(--pg-text); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-gws-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--pg-space-3);
+  margin: 0 calc(var(--pg-space-2) * -1);
+  padding: var(--pg-space-3) var(--pg-space-4);
+  border: 1px solid var(--pg-border);
+  border-radius: var(--pg-radius-md);
+  background: var(--pg-surface);
+  box-shadow: var(--pg-shadow-2);
+}
+.console-shell .pg-gws-savebar small { margin-left: auto; color: var(--pg-text-2); font-size: var(--pg-t-sm); }
+.console-shell .pg-gws-savebar small.is-changed { color: var(--pg-text); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-readonly svg { width: 12px; height: 12px; }
+.pg-gws-dialog-warning, .gws-warning { border-radius: var(--pg-radius-sm); background: var(--pg-mask-bg); color: var(--pg-mask); }
+@media (max-width: 800px) {
+  .console-shell .pg-gws .gws-row { grid-template-columns: minmax(0, 1fr); padding: var(--pg-space-3); }
+  .console-shell .pg-gws .gws-notes { grid-column: 1; }
+  .console-shell .pg-gws-savebar { margin: 0; border-radius: var(--pg-radius-md) var(--pg-radius-md) 0 0; }
+  .console-shell .pg-gws-savebar [data-slot='button'] { min-height: var(--pg-control-h-touch); }
+}
+
+/* ───────── 3f-3. 접속 차단(설계 5.8) ───────── */
+.console-shell .pg-acc-rules, .console-shell .pg-acc-mode { overflow: hidden; }
+.console-shell .pg-acc-showall { display: inline-flex; align-items: center; gap: 6px; color: var(--pg-text-2); font-size: var(--pg-t-sm); cursor: pointer; }
+.console-shell .pg-acc-number { display: block; margin-top: 2px; color: var(--pg-text-3); font-size: var(--pg-t-xs); }
+.console-shell .pg-acc-reasons { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.console-shell .pg-acc-memo { max-width: 260px; overflow-wrap: anywhere; }
+.console-shell .pg-acc-public { margin-left: 6px; }
+.console-shell .pg-acc-created small { display: block; color: var(--pg-text-3); font-size: var(--pg-t-xs); }
+.console-shell .pg-acc-actions { text-align: right; }
+.console-shell .pg-acc-table tr.is-inactive td { color: var(--pg-text-2); }
+.console-shell .pg-acc-table td { vertical-align: middle; }
+.console-shell .pg-acc-switch { display: inline-flex; align-items: center; gap: var(--pg-space-2); color: var(--pg-text); font-size: var(--pg-t-md); font-weight: var(--pg-w-semibold); cursor: pointer; }
+.console-shell .pg-acc-switch input { width: 16px; height: 16px; }
+.console-shell .pg-acc-mode-note { margin: var(--pg-space-2) 0 0; color: var(--pg-text-2); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); }
+@container pg-table (max-width: 720px) {
+  .console-shell .pg-acc-memo { max-width: none; }
+  .console-shell .pg-acc-created small { display: inline; margin-left: 4px; }
+  .console-shell .pg-acc-public { margin-left: 4px; }
+}
+.console-shell :is(.pg-pol-table, .pg-kw-rest-table, .pg-kw-approved-table, .pg-tr-ip-table, .pg-rep-table, .pg-acc-table) th:is(.pg-pol-col-actions, .pg-kw-col-actions, .pg-tr-ip-manage, .pg-num, .pg-rep-col-actions) { text-align: right; }
+/* 옛 화면 CSS가 표에 준 최소 폭(예: .policies-console [data-slot=table] 720px, 0,3,0)을 카드 모드에서 확실히 푼다 */
+@container pg-table (max-width: 720px) { .console-shell .pg-table-wrap > .pg-table { min-width: 0; } }
+
+/* ───────── 3g-1. 리포트(설계 5.11) ───────── */
+.console-shell .pg-rep-form { display: grid; gap: var(--pg-space-3); padding: var(--pg-space-4); }
+.console-shell .pg-rep-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pg-space-2) var(--pg-space-4); }
+.console-shell .pg-rep-dates { display: inline-flex; align-items: center; gap: var(--pg-space-2); color: var(--pg-text-2); }
+.console-shell .pg-rep-date [data-slot='input'] { width: 160px; }
+.console-shell .pg-rep-check { display: inline-flex; align-items: center; gap: 6px; color: var(--pg-text); font-size: var(--pg-t-sm); }
+.console-shell .pg-rep-notes { display: grid; gap: 2px; }
+.console-shell .pg-rep-notes p { margin: 0; }
+.console-shell .pg-rep-caution { color: var(--pg-mask); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-rep-error { margin: 0; color: var(--pg-block); font-size: var(--pg-t-sm); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-rep-running { margin: 0; color: var(--pg-text-2); font-size: var(--pg-t-sm); }
+.console-shell .pg-rep-submit { display: flex; justify-content: flex-end; }
+.console-shell .pg-rep-list { overflow: visible; }
+.console-shell .pg-rep-period { display: block; color: var(--pg-text); font-weight: var(--pg-w-semibold); }
+.console-shell .pg-rep-compare { display: block; color: var(--pg-text-2); font-size: var(--pg-t-xs); }
+.console-shell .pg-rep-id { display: block; max-width: 320px; overflow: hidden; color: var(--pg-text-3); font-family: var(--pg-mono); font-size: var(--pg-t-xs); text-overflow: ellipsis; white-space: nowrap; }
+.console-shell .pg-rep-col-actions, .console-shell .pg-rep-table td.pg-rep-col-actions { text-align: right; }
+.console-shell .pg-rep-table a.pg-rep-open { display: inline-flex; align-items: center; height: var(--pg-button-h-sm); padding: 0 12px; border: 1px solid var(--pg-border-strong); border-radius: var(--pg-radius-sm); background: var(--pg-surface); color: var(--pg-text); font-size: var(--pg-t-sm); font-weight: var(--pg-w-semibold); text-decoration: none; }
+.console-shell .pg-rep-table a.pg-rep-open:hover { background: var(--pg-surface-2); }
+.console-shell .pg-rep-regen-row > td { background: var(--pg-surface-2); }
+.console-shell .pg-rep-regen { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.console-shell .pg-rep-regen .pg-muted { margin-right: auto; }
+@container pg-table (max-width: 720px) {
+  .console-shell .pg-rep-id { max-width: 100%; }
+  .console-shell .pg-rep-regen-row { padding: var(--pg-space-3) var(--pg-space-4); }
+  .console-shell .pg-rep-regen-row::before { content: none; }
+  .console-shell .pg-rep-table a.pg-rep-open { height: var(--pg-control-h-touch); }
+}
+@media (max-width: 800px) {
+  .console-shell .pg-rep-line { display: grid; }
+  .console-shell .pg-rep-presets .pg-segment { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-self: stretch; }
+  .console-shell .pg-rep-dates { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .console-shell .pg-rep-date [data-slot='input'] { width: 100%; }
+  .console-shell .pg-rep-submit [data-slot='button'] { width: 100%; min-height: var(--pg-control-h-touch); }
+}
+
+/* ───────── 3g-2. 감사 로그(설계 5.12) ───────── */
+.console-shell .pg-field { display: inline-flex; align-items: center; gap: 6px; color: var(--pg-text-2); font-size: var(--pg-t-sm); }
+.console-shell .pg-field select, .console-shell .pg-field [data-slot='input'] { height: var(--pg-control-h); padding: 0 8px; border: 1px solid var(--pg-border-strong); border-radius: var(--pg-radius-sm); background: var(--pg-surface); color: var(--pg-text); font-size: var(--pg-t-sm); }
+.console-shell .pg-field [data-slot='input'] { width: 180px; }
+.console-shell .pg-audit-list { overflow: hidden; }
+.console-shell .pg-audit-hidden { color: var(--pg-mask); }
+.console-shell .pg-audit-table.pg-table { table-layout: auto; }
+.console-shell .pg-audit-table [data-slot='table-head'] { height: 36px; padding: 0 var(--pg-space-3); background: var(--pg-surface-2); color: var(--pg-text-2); font-size: var(--pg-t-xs); font-weight: var(--pg-w-bold); text-align: left; }
+.console-shell .pg-audit-table [data-slot='table-cell'] { height: 48px; padding: 6px var(--pg-space-3); color: var(--pg-text); font-size: var(--pg-t-sm); line-height: var(--pg-lh-sm); white-space: normal; }
+.console-shell .pg-audit-row { cursor: pointer; }
+.console-shell .pg-audit-action { font-weight: var(--pg-w-bold); }
+.console-shell .pg-audit-target { display: table-cell; }
+.console-shell .pg-audit-type { margin-right: 6px; color: var(--pg-text-2); }
+.console-shell .pg-audit-target .event-link { color: var(--pg-brand-text); font-family: var(--pg-mono); font-size: var(--pg-t-xs); }
+.console-shell .pg-audit-self { color: var(--pg-text-2); }
+.console-shell .pg-audit-open-cell { width: 40px; text-align: right; }
+.console-shell .pg-audit-open { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--pg-radius-sm); background: none; color: var(--pg-text-3); cursor: pointer; }
+.console-shell .pg-audit-open:hover { background: var(--pg-surface-3); color: var(--pg-text); }
+.console-shell .pg-audit-open svg { width: 16px; height: 16px; }
+.console-shell .pg-audit-list .pg-pager { padding: var(--pg-space-2) var(--pg-space-4); }
+.pg-audit-meta { display: grid; gap: var(--pg-space-2); margin: 0 0 var(--pg-space-4); }
+.pg-audit-meta > div { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: var(--pg-space-2); }
+.pg-audit-meta dt { color: var(--pg-text-3); font-size: var(--pg-t-xs); }
+.pg-audit-meta dd { margin: 0; overflow-wrap: anywhere; }
+.pg-audit-meta .mono { font-family: var(--pg-mono); font-size: var(--pg-t-xs); }
+.pg-audit-changes .audit-change-details { display: grid; gap: var(--pg-space-3); margin: 0; }
+.pg-audit-changes .audit-change-details dt { color: var(--pg-text-2); font-size: var(--pg-t-xs); font-weight: var(--pg-w-semibold); }
+.pg-audit-changes .audit-change-details dd { display: grid; gap: 2px; margin: 2px 0 0; color: var(--pg-text); font-size: var(--pg-t-sm); }
+@container pg-table (max-width: 720px) {
+  .console-shell .pg-audit-table [data-slot='table-cell'] { height: auto; padding: 0; }
+  .console-shell .pg-audit-open { width: 36px; height: 36px; }
+}
+@media (max-width: 800px) {
+  .console-shell .pg-field { display: grid; gap: 2px; }
+  .console-shell .pg-field select, .console-shell .pg-field [data-slot='input'] { width: 100%; height: var(--pg-control-h-touch); }
+  .console-shell .pg-filter-main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 1 1 100%; }
+}
+
+/* 대비 보정(손댄 화면의 옛 회색, 4.5:1 미만 → 보조 글자 --pg-text-2) */
+.console-shell .pg-strip .pg-strip-scope { color: var(--pg-text-2); }
+.console-shell .pg-rep-form .pg-segment-option { display: inline-flex; flex-direction: row; gap: 0; color: var(--pg-text-2); font-size: var(--pg-t-sm); }
+.console-shell .pg-rep-form .pg-segment-option:has(input:checked) { color: var(--pg-text); }
+.console-shell .pg-tr .traffic-performance-workspace :is(.performance-record-reference, td small, .performance-latest header p, dt, dd small, .panel-heading > span, .pagination > span) { color: var(--pg-text-2); }

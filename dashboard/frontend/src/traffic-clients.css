@@ -1,0 +1,25 @@
+/* 연결 중인 IP(2026-10-12) - 트래픽 및 성능 화면. 표 모양은 기존 .traffic-requests-table을 그대로 쓰고 칸 너비만 바꾼다 */
+.traffic-console .traffic-requests-table.traffic-clients-table th:nth-child(1) { width: 15%; }
+.traffic-console .traffic-requests-table.traffic-clients-table th:nth-child(2) { width: 19%; }
+.traffic-console .traffic-requests-table.traffic-clients-table th:nth-child(3) { width: 12%; }
+.traffic-console .traffic-requests-table.traffic-clients-table th:nth-child(4) { width: 8%; }
+.traffic-console .traffic-requests-table.traffic-clients-table th:nth-child(5) { width: 9%; }
+.traffic-console .traffic-requests-table.traffic-clients-table th:nth-child(6) { width: 15%; }
+.traffic-console .traffic-requests-table.traffic-clients-table th:nth-child(7),
+.traffic-console .traffic-requests-table.traffic-clients-table th:nth-child(8) { width: 11%; }
+/* 접속 차단 관리 칸(9번째)이 붙으면 칸 너비를 다시 나눈다 */
+.traffic-console .traffic-requests-table.traffic-clients-table--manage th:nth-child(1) { width: 12%; }
+.traffic-console .traffic-requests-table.traffic-clients-table--manage th:nth-child(2) { width: 19%; }
+.traffic-console .traffic-requests-table.traffic-clients-table--manage th:nth-child(3) { width: 10%; }
+.traffic-console .traffic-requests-table.traffic-clients-table--manage th:nth-child(4) { width: 7%; }
+.traffic-console .traffic-requests-table.traffic-clients-table--manage th:nth-child(5) { width: 8%; }
+.traffic-console .traffic-requests-table.traffic-clients-table--manage th:nth-child(6) { width: 12%; }
+.traffic-console .traffic-requests-table.traffic-clients-table--manage th:nth-child(7),
+.traffic-console .traffic-requests-table.traffic-clients-table--manage th:nth-child(8) { width: 8%; }
+.traffic-console .traffic-requests-table.traffic-clients-table--manage th:nth-child(9) { width: 16%; }
+.traffic-clients-table td:nth-child(4), .traffic-clients-table td:nth-child(5) { font-variant-numeric: tabular-nums; }
+.traffic-clients-table td small { display: block; margin-top: 3px; font-size: 12px; color: var(--console-secondary); }
+@media (max-width: 800px) {
+  .traffic-console .traffic-requests-table.traffic-clients-table { min-width: 880px; }
+  .traffic-console .traffic-requests-table.traffic-clients-table--manage { min-width: 1080px; }
+}

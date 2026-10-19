@@ -1,0 +1,22 @@
+[Unit]
+Description=Enterprise LLM Security Gateway Dashboard Backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=llm-dashboard
+Group=llm-dashboard
+WorkingDirectory=/opt/llm-security-dashboard
+EnvironmentFile=/etc/llm-dashboard/dashboard.env
+ExecStart=/usr/bin/node /opt/llm-security-dashboard/server/index.mjs
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/llm-security-dashboard/server/data
+
+[Install]
+WantedBy=multi-user.target

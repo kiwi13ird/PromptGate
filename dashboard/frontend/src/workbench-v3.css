@@ -1,0 +1,220 @@
+/* Analyst Workbench V3: presentation-only layer; source/query/route contracts remain intact. */
+:root {
+  --console-background: #eef0f2;
+  --console-text: #20272d;
+  --console-secondary: #616b75;
+  --console-border: #cdd3d9;
+  --console-brand: #176b4d;
+  --console-radius: 4px;
+  --console-content-padding: 24px;
+  --console-section-gap: 16px;
+  --console-row-height: 42px;
+  --console-panel-padding: 14px;
+}
+.console-shell .sidebar { background: #0b211b; border-color: #182f27; }
+.console-shell .sidebar-brand > span { background: transparent; border: 0; width: 24px; height: 24px; }
+.console-shell .sidebar-brand strong { font-weight: 600; }
+.console-shell .sidebar-brand small { color: #aabbb3; }
+.console-shell .sidebar a.active { background: #ffffff0a; box-shadow: inset 2px 0 #71ab8c; }
+.console-shell .topbar { height: 48px; }
+.console-shell .admin-pill > span { background: transparent; border: 0; color: var(--console-secondary); }
+.console-shell .workspace { background: var(--console-background); }
+.console-shell .content { padding: 24px var(--console-content-padding) 32px; }
+.console-shell .console-page-header { margin-bottom: 12px; align-items: center; }
+.console-shell .console-page-header h2 { font-size: 23px; font-weight: 600; letter-spacing: -.025em; }
+.console-shell :is(.console-section-header h3,.panel-heading h3,.traffic-records-heading h2) { font-size: 13px; font-weight: 600; }
+.console-shell :is(.panel,.console-panel) { background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+.console-shell :is(.panel-heading,.console-section-header) { padding: 10px 0; min-height: 40px; border: 0; border-top: 1px solid var(--console-border); }
+.console-shell :is(.table-scroll,.console-recent-scroll) { background: #fff; border-block: 1px solid var(--console-border); }
+.console-shell :is(td,th,[data-slot='table-cell'],[data-slot='table-head']) { font-size: 12px; font-weight: 400; color: var(--console-text); font-variant-numeric: tabular-nums; padding: 8px 12px; line-height: 1.55; }
+.console-shell :is(th,[data-slot='table-head']) { height: 34px; color: #58636e; background: #e5e9ee; font-weight: 500; border-color: var(--console-border); }
+.console-shell :is(td,[data-slot='table-cell']) { height: 42px; border-color: #dfe3e7; }
+.console-shell :is(.mono,code) { font-family: var(--console-mono); font-weight: 400; }
+.console-shell :is(.clickable-row,.asset-row) { cursor: pointer; }
+.console-shell :is(.clickable-row,.asset-row):hover { background: #eaf0f6; }
+.console-shell :is(.clickable-row,.asset-row):focus-visible { outline: 2px solid var(--console-info); outline-offset: -2px; }
+.console-shell tr[data-action='block'] > td:first-child { border-left: 3px solid var(--console-danger); }
+.console-shell tr[data-action='mask'] > td:first-child { border-left: 3px solid var(--console-warning); }
+.console-shell tr[data-action='allow'] > td:first-child { border-left: 3px solid var(--console-success); }
+:is(.console-shell,.console-dialog) :is(.badge,.llm-badge,.fingerprint-status) { background: transparent; border: 0; border-radius: 0; padding: 0; box-shadow: none; font-size: 12px; font-weight: 500; }
+.console-shell .badge-block { color: #b03934; }
+.console-shell .badge-mask { color: #946115; }
+.console-shell .badge-allow { color: #14734f; }
+.console-shell :is(.badge-signature,.badge-window_hash,.badge-sha256,.badge-minhash) { color: #52616e; font-weight: 400; }
+.console-shell .llm-badge { color: var(--console-text); }
+.console-shell :is(.status-badge,.incident-status) { color: #53616c; font-weight: 400; }
+.console-shell a:not(.sidebar a,.console-kpi,.dops-tabs a,.console-section-nav a) { color: var(--console-info); }
+.console-shell .pagination { background: transparent; border: 0; padding: 9px 0; font-size: 11px; }
+.console-shell [data-slot='button'] { font-size: 12px; border-radius: 3px; box-shadow: none; height: 32px; }
+.console-shell .console-refresh [data-slot='button'], .console-shell .dops-gpu-control [data-slot='button'] { height: 28px; background: transparent; }
+.console-shell .console-refresh { font-size: 11px; }
+.console-shell .period-control { background: transparent; border: 0; border-radius: 0; padding: 0; gap: 2px; }
+.console-shell .period-control button { border-radius: 0; background: transparent; box-shadow: none; border-bottom: 2px solid transparent; min-height: 28px; }
+.console-shell .period-control button.active { background: transparent; color: var(--console-text); border-bottom-color: var(--console-text); box-shadow: none; }
+.console-shell .privacy-notice { font-size: 12px; padding: 10px 0; border-top-color: var(--console-border); }
+.console-shell .state-panel { min-height: 88px; background: transparent; padding: 14px; }
+.console-shell :is(.console-disclosure,.event-detail-disclosure,.comparison-explanation,.matching-excerpt,.evidence-changes,.evidence-record-details) { border-radius: 0; box-shadow: none; background: transparent; border: 0; border-top: 1px solid var(--console-border); }
+.console-shell :is(.console-disclosure,.event-detail-disclosure,.comparison-explanation,.matching-excerpt,.evidence-changes,.evidence-record-details) > summary { padding: 11px 0; font-size: 12px; font-weight: 500; }
+.console-shell :is(.comparison-explanation,.matching-excerpt,.evidence-changes,.evidence-record-details) { margin: 0; padding: 0; }
+.console-dialog { border-radius: 4px; }
+.console-dialog [data-slot='dialog-title'] { font-weight: 600; }
+.console-dialog .status-badge { background: transparent; border: 0; padding: 0; border-radius: 0; }
+.console-dialog [data-slot='button'] { border-radius: 3px; }
+
+/* Operations start: asymmetric activity/context, queue before supplementary analysis. */
+.console-shell .console-record-status { padding: 5px 0 9px; margin-bottom: 0; }
+.console-shell .overview-console .console-kpi-group { display: flex; flex-wrap: wrap; gap: 18px 34px; border: 0; border-bottom: 1px solid var(--console-border); background: transparent; border-radius: 0; margin: 0; padding: 12px 0; }
+.console-shell .overview-console .console-kpi { border: 0; padding: 0; min-height: 0; gap: 4px; flex: 0 1 auto; min-width: 92px; justify-content: flex-start; }
+.console-shell .overview-console .console-kpi:first-child { margin-right: 22px; }
+.console-shell .overview-console .console-kpi strong { font-size: 25px; font-weight: 500; }
+.console-shell .overview-console .console-kpi:first-child strong { font-size: 30px; }
+.console-shell .overview-console .console-kpi-arrow { display: none; }
+.console-shell .overview-console .console-kpi:hover { background: transparent; text-decoration: underline; }
+.console-shell .workbench-activity { display: grid; grid-template-columns: minmax(0,3fr) minmax(200px,1fr); gap: 24px; margin-top: 14px; }
+.console-shell .workbench-activity .console-trend { margin: 0; }
+.console-shell .workbench-activity .console-section-header { border-top: 0; padding-top: 0; min-height: 28px; }
+.console-shell .console-trend-chart { height: 130px; padding: 0; }
+.console-shell .console-chart-legend { padding: 0; gap: 12px; }
+.console-shell .workbench-activity .console-empty-inline { padding: 6px 0 0; }
+.console-shell .workbench-attention { border-left: 1px solid var(--console-border); padding: 0 0 0 18px; min-width: 0; }
+.console-shell .workbench-attention h3 { font-size: 13px; font-weight: 600; margin: 0 0 10px; }
+.console-shell .overview-console .console-recent { margin-top: 16px; border-top: 2px solid #54616d; }
+.console-shell .overview-console .console-recent .console-section-header { border-top: 0; }
+
+/* Analyst queue: command area plus unboxed dense working table. */
+.console-shell .events-console .filter-panel { margin: 0 0 12px; padding: 10px 0; border-block: 1px solid var(--console-border); }
+.console-shell .events-console .event-search { padding: 0; }
+.console-shell .events-console .event-search > label { font-size: 11px; margin-bottom: 4px; }
+.console-shell .events-console .event-search input { background: #fff; height: 32px; }
+.console-shell .events-console .filter-toolbar { padding: 8px 0 3px; }
+.console-shell .events-console .event-filter-grid { gap: 8px 12px; padding: 4px 0 0; }
+.console-shell .events-console .event-filter-grid :is(input,select) { height: 30px; border-radius: 3px; font-size: 12px; }
+.console-shell .events-console .table-panel { margin-top: 0; }
+.console-shell .events-console .table-panel > .panel-heading { display: none; }
+.console-shell .events-console .event-table-controls { padding: 4px 0 8px; border: 0; font-size: 11px; background: transparent; }
+.console-shell .events-console .event-table-controls > span { color: var(--console-secondary); }
+.console-shell .console-events-table .match-summary strong { font-weight: 500; font-size: 12px; }
+.console-shell .console-events-table .llm-badge { font-weight: 400; }
+.console-shell .console-events-table .table-matched-documents a { font-weight: 400; }
+.console-shell .console-operational-row > td { background: #f4f6f8; }
+
+/* Investigation workbench: decision/flow before full-width retained evidence. */
+.console-shell .event-detail-console .event-detail-toolbar { margin-bottom: 14px; }
+.console-shell .event-detail-console .console-event-header { padding: 0 0 12px 12px; margin-bottom: 0; background: transparent; border-radius: 0; }
+.console-shell .event-detail-console .console-event-header h2 { font-size: 22px; font-weight: 600; }
+.console-shell .event-detail-console .console-request-summary { padding: 10px 0; gap: 12px 22px; }
+.console-shell .event-detail-console .event-brief { padding: 14px 0; margin: 0; border: 0; border-bottom: 1px solid var(--console-border); background: transparent; }
+.console-shell :is(.event-detail-console,.dops-evidence-row) .rds-evidence-panel { margin-top: 12px; }
+.console-shell :is(.event-detail-console,.dops-evidence-row) .rds-evidence-panel > .panel-heading { border-top: 0; }
+.console-shell :is(.event-detail-console,.dops-evidence-row) .evidence-timing-strip { padding: 5px 0 9px; border-bottom: 1px solid var(--console-border); }
+.console-shell :is(.event-detail-console,.dops-evidence-row) .match-comparison { padding: 12px 0; border: 0; background: transparent; }
+.console-shell .event-detail-console .evidence-document-pair { gap: 16px; }
+.console-shell .event-detail-console .evidence-document-sheet { border-radius: 0; box-shadow: none; background: #fff; }
+.console-shell .event-detail-console .evidence-match-banner { background: transparent; border: 0; padding: 8px 0; }
+.console-shell .event-detail-console .evidence-match-banner > svg { display: none; }
+.console-shell .event-detail-console .incident-grid { gap: 24px; }
+.console-shell .event-detail-console .event-detail-disclosure .panel-heading { border-top: 0; }
+
+/* Operations monitor: flowing metrics, asymmetric charts, separate measurement workspace. */
+.console-shell [hidden] { display: none !important; }
+.console-shell .traffic-console .console-section-nav { gap: 24px; margin-bottom: 12px; padding-bottom: 0; }
+.console-shell .traffic-console .console-section-nav a { padding: 7px 0; color: var(--console-secondary); border-bottom: 2px solid transparent; }
+.console-shell .traffic-console .console-section-nav a[aria-current='page'] { border-bottom-color: var(--console-text); color: var(--console-text); }
+.console-shell .traffic-console .traffic-kpis { display: flex; flex-wrap: wrap; gap: 12px 24px; border: 0; border-bottom: 1px solid var(--console-border); background: transparent; border-radius: 0; box-shadow: none; padding: 12px 0; margin-bottom: 14px; }
+.console-shell .traffic-console .traffic-kpis .stat-card { background: transparent; border: 0; padding: 0; border-radius: 0; flex: 0 1 auto; min-width: 90px; min-height: 0; box-shadow: none; }
+.console-shell .traffic-console .traffic-kpis .stat-card > strong { font-size: 22px; font-weight: 500; }
+.console-shell .traffic-console .traffic-kpis .stat-card > span { font-size: 12px; }
+.console-shell .traffic-console .traffic-kpis .stat-card:last-child > strong { font-size: 14px; line-height: 33px; }
+.console-shell .traffic-console .traffic-records-heading { margin-top: 0; }
+.console-shell .traffic-console .traffic-records-heading p { font-size: 12px; }
+/* 부분 구간 안내: 위 설명문과 같은 왼쪽 선·글자 크기(따로 들여 쓰지 않음) */
+.console-shell .traffic-console .traffic-monitor-workspace > .console-empty-inline { padding: 0 0 4px; font-size: 12px; }
+.console-shell .traffic-console .traffic-chart-grid { grid-template-columns: minmax(0,1fr); gap: 24px; margin: 12px 0; }
+.console-shell .traffic-console .traffic-chart { height: 190px; padding: 0; background: transparent; }
+.console-shell .traffic-console .traffic-chart--empty { height: auto; }
+.console-shell .traffic-console .traffic-chart-grid .panel-heading { border-top: 0; }
+.console-shell .traffic-console .performance-runs-panel { margin-top: 0; }
+.console-shell .traffic-console .performance-runs-panel > .panel-heading { border-top: 0; }
+.console-shell .traffic-console .performance-latest-values { gap: 20px; display: flex; flex-wrap: wrap; }
+.console-shell .traffic-console .performance-latest-values > div { border: 0; padding: 0; min-width: 120px; }
+.console-shell .traffic-console .performance-runs-table { background: #fff; }
+
+/* Asset inventory / rule management / audit viewer. */
+.console-shell .console-metrics { border-top: 0; padding: 8px 0 12px; gap: 12px 30px; margin-bottom: 14px; }
+.console-shell .console-metrics > div { flex: 0 1 auto; padding: 0; border: 0; }
+.console-shell .console-metrics dd { font-size: 22px; font-weight: 500; margin-top: 2px; }
+.console-shell .document-name { gap: 2px; }
+.console-shell .document-protection-badge { padding: 0; border: 0; border-radius: 0; background: transparent; font-weight: 500; }
+.console-shell .documents-console .console-row-details { margin-top: 2px; }
+.console-shell .documents-console .console-row-details > summary { font-size: 12px; }
+.console-shell .documents-console .document-name > strong { font-weight: 500; }
+.console-shell .documents-console .document-name small { margin-top: 1px; }
+.console-shell .documents-console .privacy-notice > svg { display: none; }
+.console-shell .document-detail-console .detail-panel { margin-bottom: 12px; }
+.console-shell .policies-console .row-actions { flex-wrap: wrap; gap: 3px 8px; }
+.console-shell .policies-console .row-actions [data-slot='button'] { width: auto; height: 24px; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--console-info); font-size: 12px; }
+.console-shell .policies-console th:nth-child(1) { width: 16%; }
+.console-shell .policies-console th:nth-child(2) { width: 10%; }
+.console-shell .policies-console th:nth-child(3) { width: 14%; }
+.console-shell .policies-console th:nth-child(4) { width: 11%; }
+.console-shell .policies-console th:nth-child(5) { width: 10%; }
+.console-shell .policies-console th:nth-child(6) { width: 7%; }
+.console-shell .policies-console th:nth-child(7) { width: 8%; }
+.console-shell .policies-console th:nth-child(8) { width: 11%; }
+.console-shell .policies-console th:nth-child(9) { width: 13%; }
+.console-shell .policies-console .console-primary-text { font-weight: 500; }
+.console-shell .policies-console .policy-principle-disclosure { background: transparent; border: 0; border-radius: 0; }
+.console-shell .audit-console .filter-grid { gap: 12px; }
+.console-shell .audit-console .table-panel { margin-top: 14px; }
+.console-shell .audit-console .audit-detail-row > td { background: #f0f3f6; }
+.console-shell .audit-console .table-panel > .panel-heading { display: none; }
+.console-shell .audit-console [data-slot='table-cell'] { font-size: 12px; }
+.console-shell .audit-console .audit-action { background: transparent; border: 0; border-radius: 0; padding: 0; font-weight: 400; }
+
+@media (max-width: 1279px) {
+  .console-shell .workbench-activity { grid-template-columns: minmax(0,2.6fr) minmax(180px,1fr); gap: 18px; }
+  .console-shell .traffic-console .traffic-kpis { gap: 12px 20px; }
+  /* 정책 표: 짧은 칸은 머리글이 한 줄로 들어가는 px, 정책 칸이 나머지(관리 / 이력 열이 화면 안에 있게) */
+  .console-shell .policies-console th:nth-child(1) { width: auto; }
+  .console-shell .policies-console th:nth-child(2) { width: 94px; }
+  .console-shell .policies-console th:nth-child(3) { width: 80px; }
+  .console-shell .policies-console th:nth-child(4) { width: 104px; }
+  .console-shell .policies-console th:nth-child(5) { width: 76px; }
+  .console-shell .policies-console th:nth-child(6) { width: 70px; }
+  .console-shell .policies-console th:nth-child(7) { width: 74px; }
+  .console-shell .policies-console th:nth-child(8) { width: 90px; }
+  .console-shell .policies-console th:nth-child(9) { width: 84px; }
+}
+@media (max-width: 1100px) {
+  /* 본문 폭 약 740px: 칸 안쪽 여백을 6px로 줄이고 짧은 칸은 머리글·값이 한 줄로 들어가는 만큼만 */
+  .console-shell .policies-console [data-slot='table'] { min-width: 720px; }
+  .console-shell .policies-console :is(td,th) { padding-inline: 6px; }
+  .console-shell .policies-console th:nth-child(2) { width: 82px; }
+  .console-shell .policies-console th:nth-child(3) { width: 68px; }
+  .console-shell .policies-console th:nth-child(4) { width: 92px; }
+  .console-shell .policies-console th:nth-child(5) { width: 66px; }
+  .console-shell .policies-console th:nth-child(6) { width: 58px; }
+  .console-shell .policies-console th:nth-child(7) { width: 64px; }
+  .console-shell .policies-console th:nth-child(8) { width: 82px; }
+  .console-shell .policies-console th:nth-child(9) { width: 72px; }
+  /* 트래픽 KPI 8개: 6+2로 남지 않게 4칸씩 두 줄 */
+  .console-shell .traffic-console .traffic-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .console-shell .traffic-console .traffic-kpis .stat-card { min-width: 0; }
+}
+@media (max-width: 800px) {
+  .console-shell .workbench-activity, .console-shell .traffic-console .traffic-chart-grid { grid-template-columns: minmax(0,1fr); }
+  .console-shell .workbench-attention { border-left: 0; border-top: 1px solid var(--console-border); padding: 10px 0 0; }
+  :root { --console-content-padding: 14px; }
+  .console-shell .content { padding-block: 16px 24px; }
+  .console-shell .console-page-header { align-items: flex-start; text-align: left; }
+  .console-shell .console-page-header > div:first-child { align-self: flex-start; width: 100%; }
+  .console-shell .overview-console .console-kpi-group { gap: 14px 22px; }
+}
+@media (max-width: 600px) {
+  .console-shell .console-page-header h2, .console-shell .event-detail-console .console-event-header h2 { font-size: 22px; }
+  .console-shell .overview-console .console-kpi:first-child { margin-right: 0; }
+  .console-shell .traffic-console .traffic-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .console-shell .console-metrics { gap: 12px 25px; }
+  .console-shell .console-metrics > div { flex-basis: 40%; }
+  .console-shell .event-detail-console .evidence-document-pair { grid-template-columns: minmax(0,1fr); }
+}

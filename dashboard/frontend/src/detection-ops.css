@@ -1,0 +1,219 @@
+/* 리포트 · 문서별 키워드 · GPU 상태 화면 전용. 기존 CSS 순서(main.tsx)를 건드리지 않도록 각 컴포넌트에서 불러온다.
+   모든 선택자는 dops- 접두어로 기존 화면과 겹치지 않게 한다. 색은 design-system.css 토큰만 쓴다. */
+
+.dops-tabs { display: flex; gap: 24px; margin: 0 0 14px; border-bottom: 1px solid var(--border); }
+.dops-tabs a { padding: 8px 0; font-size: 13px; font-weight: 500; color: var(--muted-foreground); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.dops-tabs a:hover { color: var(--foreground); }
+.dops-tabs a.active { color: var(--foreground); border-bottom-color: var(--foreground); font-weight: 600; }
+
+.dops-gpu { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.dops-gpu small { color: var(--muted-foreground); font-weight: 400; }
+.dops-gpu-control { display: inline-flex; align-items: center; gap: 8px; }
+.dops-header-status { display: inline-flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+
+.dops-summary { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0 0 14px; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; }
+.dops-summary div { display: flex; gap: 6px; align-items: baseline; }
+.dops-summary dt { color: var(--muted-foreground); }
+.dops-summary dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dops-notice { margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius); background: var(--muted); color: var(--secondary-foreground); font-size: 13px; }
+
+.dops-chips { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; max-width: 360px; }
+.dops-chip { display: inline-block; padding: 2px 7px; border-radius: 4px; background: var(--accent); color: var(--secondary-foreground); font-size: 12px; max-width: min(220px, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dops-muted { color: var(--muted-foreground); font-size: 12px; }
+.dops-pending { font-weight: 600; color: var(--primary); }
+.dops-warn { color: #a15c07; font-size: 12px; font-weight: 500; }
+.dops-evidence { margin-top: 2px; font-size: 12px; color: var(--muted-foreground); }
+.dops-evidence summary { cursor: pointer; color: var(--primary); }
+.dops-evidence p { margin: 4px 0 0; padding-left: 8px; border-left: 2px solid var(--border, #d6dde6); line-height: 1.5; word-break: keep-all; }
+.dops-evidence mark { background: transparent; color: var(--foreground); font-weight: 700; }
+.dops-error { color: #b42318; font-size: 12px; font-weight: 500; }
+
+.dops-detail-cell { background: var(--muted); padding: 12px 14px !important; }
+.dops-detail-cell table { background: var(--card); }
+.dops-add-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.dops-add-form input[type='text'] { max-width: 280px; }
+.dops-add-form label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+
+.dops-report-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.dops-report-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted-foreground); }
+.dops-report-form label.dops-inline { flex-direction: row; align-items: center; gap: 6px; font-size: 13px; color: var(--foreground); }
+.dops-report-form input[type='date'] { width: 170px; }
+.dops-report-form ~ p { margin-top: 10px; }
+/* 기간 바로 고르기(2026-10-12): 폼 첫 줄 전체 폭 */
+.dops-presets { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 0 100%; }
+.dops-presets [data-slot='button'] { white-space: nowrap; }
+/* 목록: 기간 아래 비교 기간, 행의 다시 만들기 */
+.dops-compare { display: block; white-space: nowrap; }
+.dops-list-error { margin: 0 0 10px; }
+.dops-link-button { display: inline-block; padding: 0; border: 0; background: transparent; color: var(--console-info, #356fa8); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.dops-link-button:hover { text-decoration: underline; }
+.dops-link-button[aria-expanded='true'] { font-weight: 600; }
+.dops-regen { display: flex; flex-wrap: wrap; gap: 3px 10px; margin-top: 6px; }
+/* 행 안 작업이라 표의 다른 글자 링크(새 탭에서 보기)와 같은 모양으로 */
+.dops-regen [data-slot='button'] { width: auto; height: 24px; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--console-info, #356fa8); font-size: 12px; white-space: nowrap; }
+.dops-regen [data-slot='button']:disabled { color: var(--muted-foreground); }
+.dops-running { font-size: 13px; }
+.dops-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.dops-actions a { font-size: 12px; }
+.dops-nowrap { white-space: nowrap; }
+.dops-id { display: block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dops-actions { white-space: nowrap; }
+
+/* 행 관리 버튼: 기존 .console-data-page .row-actions는 아이콘 버튼(28px)이다. 탐지 정책 목록(.policies-console)과 같은 글자 링크 모양으로 */
+.console-data-page.dops-page .row-actions { gap: 3px 10px; flex-wrap: wrap; }
+.console-data-page.dops-page .row-actions [data-slot='button'] { width: auto; height: 24px; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--console-info); font-size: 12px; }
+.console-data-page.dops-page .row-actions [data-slot='button']:disabled { color: var(--muted-foreground); }
+
+/* 좁은 화면: 기존 화면들(.documents-console 등)과 같이 표 최소 너비를 두고 표 안에서 가로 스크롤 */
+@media (max-width: 800px) {
+  .dops-page [data-slot='table'] { min-width: 720px; }
+  .dops-page .dops-detail-cell [data-slot='table'] { min-width: 680px; }
+}
+
+/* 문서별 키워드 칸: 승인/대기 두 줄 */
+.dops-kw-cell { display: flex; flex-direction: column; gap: 4px; }
+.dops-kw-cell > div { display: flex; align-items: flex-start; gap: 6px; }
+.dops-kw-label { flex: none; min-width: 44px; padding-top: 2px; font-size: 12px; color: var(--muted-foreground); }
+.dops-kw-label--pending { color: var(--primary); font-weight: 600; }
+.dops-chip--pending { background: transparent; border: 1px dashed var(--primary); color: var(--primary); }
+/* 내 요청 기록 차단·가림 사유 칩(2026-10-10) */
+.dops-chip--reason { background: #fde2e2; color: #8f1f1f; max-width: none; }
+.dops-empty { margin: 0; padding: 16px 14px; font-size: 13px; color: var(--muted-foreground); }
+
+/* 승인 대기 키워드 수정 칸 */
+.dops-edit-input { max-width: 280px; }
+
+/* 보안 이벤트 목록: 원문 보기 토글과 펼친 행 */
+.dops-evidence-toggle { display: inline-block; padding: 0; border: 0; background: transparent; color: var(--console-info, #356fa8); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.dops-evidence-toggle:hover { text-decoration: underline; }
+.dops-evidence-toggle[aria-expanded='true'] { font-weight: 600; }
+.dops-evidence-row > td { padding: 0 !important; background: var(--muted); cursor: default; }
+.dops-evidence-row .rds-evidence-panel { margin: 10px 12px 14px; }
+/* 최종 조치 칸: 조치 배지 · 묶음 태그 · 원문 보기 (줄이 바뀌어도 왼쪽 정렬) */
+.dops-action-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+
+/* 질문 + 첨부 파일 묶음 · 파일 칸별 전·후 (2026-10-09) */
+.dops-attach-tag { display: inline-block; font-size: 11px; font-weight: 600; color: var(--primary); background: var(--accent); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.dops-attached-evidence { margin-top: 12px; display: grid; gap: 6px; }
+.dops-evidence-row .dops-attached-evidence { margin: 12px 12px 0; }
+.dops-evidence-row .dops-attached-evidence .rds-evidence-panel { margin-inline: 0; }
+.dops-attached-heading { margin: 0; font-size: 13px; font-weight: 600; }
+.dops-attached-heading a { margin-left: 10px; font-weight: 500; font-size: 12px; }
+.dops-attach-links { display: flex; flex-direction: column; gap: 2px; }
+.dops-file-compare { display: grid; gap: 10px; min-width: 0; }
+.dops-file-toolbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.dops-file-seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.dops-file-seg button { font: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px; border: 0; background: var(--card); color: var(--muted-foreground); cursor: pointer; }
+.dops-file-seg button + button { border-left: 1px solid var(--border); }
+.dops-file-seg button[aria-pressed='true'] { background: var(--primary); color: var(--primary-foreground); }
+.dops-file-seg button:disabled { opacity: .45; cursor: not-allowed; }
+.dops-file-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 12px; color: var(--muted-foreground); }
+.dops-file-legend label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+.dops-file-swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.dops-file-swatch.hl { background: #ffe27a; }
+.dops-file-swatch.rep { background: #dceafc; border: 1px solid #1a4c86; }
+.dops-file-totals { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
+.dops-file-note { margin: 0; font-size: 12px; color: var(--muted-foreground); }
+.dops-file-papers { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+.dops-file-papers.side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 표가 반쪽 종이에 가로 스크롤 없이 들어가지 않으면 전·후를 위아래로 쌓는다(판단은 FileComparisonView가 표 폭을 재서 함) */
+.dops-file-papers.side.stacked { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 1100px) { .dops-file-papers.side { grid-template-columns: minmax(0, 1fr); } }
+.dops-file-paper { position: relative; background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 20px 18px 14px; display: grid; align-content: start; gap: 8px; font-size: 13px; line-height: 1.65; min-width: 0; }
+.dops-file-paper p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* 표 칸 안에서는 낱말 단위로만 줄을 바꾼다(한 글자 폭으로 칸이 찌그러지지 않게) */
+.dops-file-table td p { overflow-wrap: break-word; word-break: keep-all; }
+.dops-file-paper-label { position: absolute; top: -10px; left: 12px; font-size: 11px; font-weight: 600; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 0 9px; color: var(--muted-foreground); }
+.dops-file-hf { font-size: 11.5px; color: var(--muted-foreground); }
+.dops-file-hf.head { border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+.dops-file-hf.foot { border-top: 1px solid var(--border); padding-top: 5px; }
+.dops-file-table, .dops-file-grid { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+/* 콘솔 전역 표 칸 규칙(.console-shell :is(td,th,…))보다 우선하도록 종이 안으로 한정 */
+.dops-file-paper :is(.dops-file-table td, .dops-file-grid td, .dops-file-grid th) { height: auto; border: 1px solid var(--border); padding: 4px 7px; vertical-align: top; }
+.dops-file-paper .dops-file-grid th { background: var(--muted); color: var(--muted-foreground); font-weight: 500; font-size: 12px; text-align: center; }
+.dops-file-paper .dops-file-grid td { white-space: nowrap; }
+.dops-file-sheet { display: grid; gap: 4px; align-content: start; }
+.dops-file-sheet-name { font-size: 12px; font-weight: 600; color: var(--muted-foreground); }
+mark.dops-file-hl { background: #ffe27a; color: #3d3100; border-radius: 3px; padding: 0 2px; white-space: nowrap; }
+.dops-file-rep { font-family: ui-monospace, Consolas, monospace; font-size: .86em; background: #dceafc; color: #1a4c86; border-radius: 3px; padding: 0 4px; white-space: nowrap; }
+.dops-file-flagged { outline: 1px dashed #a15c07; outline-offset: 1px; }
+.dops-file-swatch.box, .dops-file-rep.box { background: #111; color: #fff; border: 1px solid #111; }
+.dops-file-rep.box { white-space: normal; overflow-wrap: anywhere; }
+.dops-file-rep.pad { white-space: pre; }
+.dops-file-papers.show-seg [data-seg]::before { content: attr(data-seg); display: block; font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.3; color: var(--primary); }
+/* 내 요청 기록 (2026-10-09) - 확장 프로그램 '로그 확인'으로 여는 사용자용 페이지. 관리자 메뉴 없이 한 화면 */
+.dops-my { max-width: 1600px; margin: 0 auto; padding: 28px 16px 48px; display: grid; gap: 16px; min-width: 0; }
+.dops-my-head { display: grid; gap: 4px; }
+.dops-my-head h1 { margin: 0; font-size: 22px; font-weight: 700; }
+.dops-my-head p { margin: 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.6; }
+.dops-my-head .dops-my-brand { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--primary); }
+.dops-my-panel { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 16px; display: grid; gap: 8px; justify-items: start; font-size: 13px; line-height: 1.6; }
+.dops-my-panel p { margin: 0; }
+.dops-my button { font: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--foreground); cursor: pointer; }
+.dops-my button:disabled { opacity: .5; cursor: default; }
+.dops-my-warning { margin: 0; padding: 10px 12px; border-radius: 6px; background: #fff6df; color: #6b4a00; border: 1px solid #f0d58a; font-size: 13px; }
+.dops-my-loading { color: var(--muted-foreground); font-size: 13px; }
+.dops-my-error { margin: 0; color: #a12a2a; font-size: 13px; }
+.dops-my-toolbar { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted-foreground); }
+.dops-my-table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); font-size: 13px; }
+.dops-my-table th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted-foreground); padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.dops-my-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.dops-my-row > td:last-child { width: 1%; white-space: nowrap; text-align: right; }
+.dops-my-row.open td { background: var(--accent); }
+.dops-my-row.open .dops-chip:not(.dops-chip--reason) { background: var(--card); }
+.dops-my-time { white-space: nowrap; }
+.dops-my-result { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+.dops-my-result.mask { background: #dceafc; color: #1a4c86; }
+.dops-my-result.block { background: #fde2e2; color: #8f1f1f; }
+.dops-my-result.allow { background: var(--muted); color: var(--muted-foreground); }
+.dops-my-detail > td { padding: 14px 12px 18px; display: table-cell; }
+.dops-my-detail > td > * + * { margin-top: 18px; }
+.dops-my-evidence { display: grid; gap: 10px; min-width: 0; }
+.dops-my-evidence h3 { margin: 0; font-size: 14px; font-weight: 700; }
+.dops-my-filename { font-weight: 500; color: var(--muted-foreground); }
+.dops-my-blocked { margin: 0; padding: 10px 12px; border-radius: 6px; background: #fde2e2; color: #8f1f1f; font-size: 13px; }
+.dops-my-plain { margin: 0; background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dops-my .table-scroll { position: relative; }
+/* 휴대폰 폭: 표 대신 한 요청씩 카드처럼 쌓는다(가로 스크롤 없이 전·후 보기) */
+@media (max-width: 640px) {
+  .dops-my-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .dops-my-table, .dops-my-table tbody, .dops-my-table tr, .dops-my-table td { display: block; width: 100%; }
+  .dops-my-row { display: flex !important; flex-wrap: wrap; gap: 4px 10px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .dops-my-row > td { width: auto; padding: 0; border: 0; background: transparent !important; }
+  .dops-my-row > td:nth-child(5) { flex-basis: 100%; }
+  .dops-my-row > td:last-child { width: auto; margin-left: auto; }
+  .dops-my-row.open { background: var(--accent); }
+  .dops-my-detail > td { padding: 12px 10px 16px; }
+}
+/* 시험·데모 기록 제외 안내·감사 로그 숨김 안내 (2026-10-10) */
+.dops-test-note { font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
+.dops-test-toggle { font: inherit; font-size: 12px; color: var(--primary); background: none; border: 0; padding: 0 2px; cursor: pointer; text-decoration: underline; }
+/* 문서별 키워드 화면 표 열 폭: 고정 폭 표(table-layout: fixed)라 내용 폭이 정해진 칸은 px로, 글자 칸이 나머지를 나눈다 */
+.dops-col-status { width: 84px; }
+.dops-col-count { width: 96px; }
+.dops-col-decided { width: 150px; }
+.dops-col-actions { width: 120px; }
+.dops-doc-table > thead > tr > th:nth-child(1) { width: 28%; }
+.dops-doc-table > thead > tr > th:nth-child(2) { width: 36%; }
+.dops-doc-table > thead > tr > th:nth-child(3) { width: 18%; }
+.dops-doc-table > thead > tr > th:nth-child(4) { width: 18%; }
+@media (max-width: 1100px) {
+  /* 본문 폭(약 740px) 안에 관리 열까지 들어가게: 짧은 칸만 좁히고 글자 칸은 줄을 바꾼다(펼친 문서 안 표와 같은 최소 폭) */
+  .dops-page .dops-kw-table { min-width: 680px; }
+  .dops-col-status { width: 72px; }
+  .dops-col-decided { width: 100px; }
+  .dops-col-actions { width: 104px; }
+}
+/* 열 7개(2026-10-12): 기간 · 상태 · 생성 시각 · 검사 · 사건 · 높음 사용자 · 보기. 고정 폭 표라 합이 100% */
+.dops-report-table th:nth-child(1) { width: 25%; }
+.dops-report-table th:nth-child(2) { width: 14%; }
+.dops-report-table th:nth-child(3) { width: 15%; }
+.dops-report-table th:nth-child(4) { width: 10%; }
+.dops-report-table th:nth-child(5) { width: 8%; }
+.dops-report-table th:nth-child(6) { width: 10%; }
+.dops-report-table th:nth-child(7) { width: 18%; }
+.dops-report-table td, .dops-report-table th { word-break: keep-all; }
+@media (max-width: 1279px) {
+  /* 열이 7개라 좁은 화면에서는 표 최소 너비를 두고 표 안에서 가로 스크롤 */
+  .dops-page [data-slot='table'].dops-report-table { min-width: 780px; }
+}

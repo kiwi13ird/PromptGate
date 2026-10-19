@@ -1,0 +1,61 @@
+{
+  "name": "enterprise-llm-security-gateway-admin",
+  "version": "0.4.1",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "vite --mode production --config vite.local.config.ts --configLoader native",
+    "dev:real": "npm run dev",
+    "build": "npm run build:real",
+    "build:real": "tsc -b && vite build --mode production --outDir dist-real --configLoader native",
+    "preview": "vite preview --mode production --outDir dist-real --configLoader native",
+    "verify:real-artifact": "node scripts/verify-real-artifact.mjs",
+    "build:extension": "node scripts/build-extension.mjs",
+    "test:extension": "tsc -p tsconfig.extension.json --pretty false && vitest run --config vitest.extension.config.ts --pool=threads --maxWorkers=1",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run --pool=threads --maxWorkers=1",
+    "test:watch": "vitest",
+    "lint": "oxlint src components lib vite.config.ts vite.local.config.ts vitest.config.ts",
+    "format": "oxfmt"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.7.0",
+    "@tanstack/react-query": "5.90.21",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "docx-preview": "0.4.1",
+    "jszip": "3.10.2",
+    "lucide-react": "1.31.0",
+    "pdfjs-dist": "6.4.299",
+    "pg": "8.16.3",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "react-router-dom": "7.18.3",
+    "recharts": "3.8.0",
+    "tailwind-merge": "3.6.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.1.1",
+    "autoprefixer": "10.4.24",
+    "jsdom": "26.1.0",
+    "oxfmt": "0.61.0",
+    "oxlint": "1.76.0",
+    "oxlint-tsgolint": "7.0.2001",
+    "postcss": "8.5.28",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.9.3",
+    "vite": "8.2.2",
+    "vitest": "3.2.7"
+  },
+  "type": "module"
+}

@@ -1,0 +1,47 @@
+/* Gateway 처리 설정 화면(2026-10-10) 전용. 선택자는 gws- 접두어로 기존 화면과 겹치지 않게 한다. */
+
+.gws-page { display: grid; gap: 14px; min-width: 0; }
+.gws-page > .dops-tabs { margin-bottom: 0; }
+.console-shell .gws-page > .console-page-header { margin-bottom: 0; }
+
+.gws-status { display: grid; gap: 4px; padding: 10px 14px; background: var(--console-surface, #fff); border: 1px solid var(--console-border, #dde3df); border-radius: var(--console-radius, 6px); font-size: 13px; }
+.gws-status p { margin: 0; overflow-wrap: anywhere; }
+.gws-saved { color: var(--console-text, #18211d); font-weight: 600; font-variant-numeric: tabular-nums; }
+.gws-state { font-size: 12px; font-variant-numeric: tabular-nums; }
+.gws-state::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; vertical-align: 1px; background: currentColor; }
+.gws-state--ok { color: var(--pg-allow, #16805a); }
+.gws-state--pending { color: var(--console-info, #356fa8); }
+.gws-state--warn { color: #a15c07; }
+
+.gws-alert { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0; padding: 10px 14px; border-left: 3px solid var(--console-warning, #b7791f); background: #fff7e8; color: #825b22; font-size: 12px; }
+
+.gws-form { display: grid; gap: 14px; min-width: 0; }
+.gws-body { display: grid; gap: 12px; padding: 14px 0 16px; }
+.gws-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 6px 14px; align-items: start; }
+.gws-row-label { padding-top: 7px; font-size: 13px; font-weight: 600; color: var(--console-text, #18211d); }
+.gws-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; min-width: 0; }
+.gws-field { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--console-secondary, #66736c); }
+.gws-field select { height: 32px; min-width: 110px; padding: 0 8px; color: #3c4e40; background: #fbfcfa; border: 1px solid #dfe6db; border-radius: 6px; font-size: 13px; }
+.gws-field select:disabled { opacity: .6; }
+.gws-field [data-slot='input'] { width: 88px; font-variant-numeric: tabular-nums; }
+.gws-notes { grid-column: 2; display: grid; gap: 2px; margin: 0; font-size: 12px; color: var(--console-secondary, #66736c); }
+.gws-notes p { margin: 0; }
+.gws-notes strong { color: var(--console-text, #18211d); font-weight: 600; font-variant-numeric: tabular-nums; }
+.gws-input-error { color: #b4232d; font-weight: 600; }
+.gws-fixed-note { margin: 0; padding-top: 10px; border-top: 1px solid var(--console-border, #dde3df); font-size: 12px; color: var(--console-secondary, #66736c); }
+.gws-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+
+.gws-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.gws-actions small { font-size: 12px; color: var(--console-secondary, #66736c); }
+
+.gws-changes { display: grid; gap: 6px; margin: 0; font-size: 13px; }
+.gws-changes div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 10px; }
+.gws-changes dt { color: var(--console-secondary, #66736c); }
+.gws-changes dd { margin: 0; font-variant-numeric: tabular-nums; }
+.gws-warning { margin: 0; padding: 8px 10px; border-radius: 4px; background: #fff7e8; color: #825b22; font-size: 12px; line-height: 1.6; }
+
+@media (max-width: 640px) {
+  .gws-row, .gws-changes div { grid-template-columns: minmax(0, 1fr); }
+  .gws-notes { grid-column: 1; }
+  .gws-row-label { padding-top: 0; }
+}

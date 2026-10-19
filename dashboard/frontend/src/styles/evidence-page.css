@@ -1,0 +1,138 @@
+/* 이벤트 상세 '보호 문서 일치 구간'·'파일 마스킹 전·후' 문서 한 페이지 보기(2026-10-16).
+ * 새 클래스(pg-evp-*)만 정의한다. 이벤트 화면은 다크 모드에서도 밝게 남는 범위([data-ui='legacy'])라
+ * 색은 재설계 토큰(설계안 3.1·3.2)의 라이트 값을 이 범위 안 변수로 고정해 쓴다(--pg-*는 다크에서 바뀌므로 직접 쓰지 않음). */
+
+.pg-evp, .pg-evp-details, .pg-evp-file {
+  --evp-surface: #FFFFFF;
+  --evp-surface-2: #F7F8F7;
+  --evp-surface-3: #ECEFED;
+  --evp-border: #DDE1DF;
+  --evp-border-strong: #C4CAC7;
+  --evp-text: #18201C;
+  --evp-text-2: #4A5550;
+  --evp-text-3: #66706B;
+  --evp-brand: #176B57;
+  --evp-mark: #FFE58A;
+  --evp-mark-line: #B97500;
+  --evp-mask: #8A4F00;
+  --evp-mask-bg: #FDF0D5;
+}
+
+.pg-evp { display: grid; gap: 12px; min-width: 0; margin: 4px 0 16px; color: var(--evp-text); }
+.pg-evp + .pg-evp { padding-top: 16px; border-top: 1px solid var(--evp-border); }
+
+/* 요약 한 줄: 문서 이름(링크) · 비율 · 글자 수 · 검사 시간 */
+.pg-evp-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; min-width: 0; margin: 0; color: var(--evp-text-2); font-size: 13px; line-height: 20px; }
+.pg-evp-summary > * { min-width: 0; }
+.pg-evp-summary > span { padding: 0 14px; border-left: 1px solid var(--evp-border); white-space: nowrap; }
+.pg-evp-summary > span:first-of-type { margin-left: 14px; }
+.pg-evp-summary b { color: var(--evp-text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.pg-evp-key { color: var(--evp-text-3); }
+.pg-evp-icon { flex: none; width: 16px; height: 16px; margin-right: 6px; color: var(--evp-text-3); }
+.pg-evp-doc, .pg-evp-name { color: var(--evp-brand); font-size: 15px; line-height: 22px; font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
+.pg-evp-name { color: var(--evp-text); }
+.pg-evp-doc:hover { text-decoration: underline; }
+.pg-evp-doc:focus-visible, .pg-evp-seg button:focus-visible, .pg-evp-nav:focus-visible, .pg-evp-scroll:focus-visible, .pg-evp-link:focus-visible, .pg-evp-details > summary:focus-visible {
+  outline: 2px solid var(--evp-brand); outline-offset: 2px;
+}
+
+/* 도구 줄: 보기 전환(왼쪽) · 범례·개수·이동(오른쪽) */
+.pg-evp-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-width: 0; }
+.pg-evp-seg { display: inline-flex; flex: none; border: 1px solid var(--evp-border-strong); border-radius: 6px; overflow: hidden; background: var(--evp-surface); }
+.pg-evp-seg button { padding: 5px 12px; border: 0; background: transparent; color: var(--evp-text-2); font: inherit; font-size: 12px; line-height: 18px; font-weight: 600; cursor: pointer; }
+.pg-evp-seg button + button { border-left: 1px solid var(--evp-border-strong); }
+.pg-evp-seg button[aria-pressed='true'] { background: var(--evp-brand); color: #FFFFFF; }
+.pg-evp-seg button:disabled { opacity: .45; cursor: not-allowed; }
+.pg-evp-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; margin: 0; color: var(--evp-text-2); font-size: 12px; line-height: 18px; }
+.pg-evp-legend label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.pg-evp-legend input[type='checkbox'] { margin: 0; accent-color: var(--evp-brand); }
+.pg-evp-legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.pg-evp-swatch { display: inline-block; flex: none; width: 14px; height: 10px; border-radius: 2px; background: var(--evp-mark); box-shadow: inset 0 -2px 0 var(--evp-mark-line); }
+.pg-evp-swatch.rep { background: #DCEAFC; box-shadow: inset 0 0 0 1px #1A4C86; }
+.pg-evp-swatch.box { background: #111111; box-shadow: none; }
+.pg-evp-count { color: var(--evp-text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.pg-evp-nav { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid var(--evp-border-strong); border-radius: 6px; background: var(--evp-surface); color: var(--evp-text-2); cursor: pointer; }
+.pg-evp-nav:hover { border-color: var(--evp-text-3); color: var(--evp-text); }
+.pg-evp-nav svg { width: 14px; height: 14px; }
+
+/* 책상(회색) 위 종이(흰) 한 장. 길면 책상 안에서 스크롤 */
+.pg-evp-desk { min-width: 0; border: 1px solid var(--evp-border); border-radius: 10px; background: var(--evp-surface-3); overflow: hidden; }
+.pg-evp-scroll { max-height: min(760px, 78vh); overflow: auto; padding: 24px 20px; overscroll-behavior: contain; }
+.pg-evp-paper { box-sizing: border-box; max-width: 820px; min-height: 160px; margin: 0 auto; padding: 48px 56px; background: var(--evp-surface); color: var(--evp-text); box-shadow: 0 1px 3px rgba(16, 32, 26, .16), 0 0 0 1px rgba(16, 32, 26, .04); }
+.pg-evp-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.85; }
+mark.pg-evp-diff { padding: 1px 0; border-radius: 2px; background: var(--evp-mark); color: var(--evp-text); box-shadow: inset 0 -2px 0 var(--evp-mark-line); }
+mark.pg-evp-diff.is-current { outline: 2px solid var(--evp-mark-line); outline-offset: 1px; }
+.pg-evp-state { margin: 0; color: var(--evp-text-2); font-size: 13px; line-height: 20px; }
+.pg-evp-link { padding: 0; border: 0; background: none; color: var(--evp-brand); font: inherit; text-decoration: underline; cursor: pointer; }
+
+/* 두 칸 나란히(2026-10-16 2차): 왼쪽 보낸 입력 · 오른쪽 보호 문서 원문. 좁으면 위아래 */
+.pg-evp-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-width: 0; }
+.pg-evp-pane { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; min-width: 0; }
+.pg-evp-pane-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; min-width: 0; }
+.pg-evp-pane-head h4 { margin: 0; color: var(--evp-text); font-size: 14px; line-height: 20px; font-weight: 700; }
+.pg-evp-pane-head span { color: var(--evp-text-3); font-size: 12px; line-height: 16px; }
+.pg-evp-pair .pg-evp-scroll { max-height: min(680px, 72vh); padding: 16px 14px; }
+.pg-evp-pair .pg-evp-paper { max-width: none; min-height: 120px; padding: 28px 30px; }
+.pg-evp-faint { color: #8A948F; }
+.pg-evp-anchor { display: inline; }
+.pg-evp-nav-group { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; }
+.pg-evp-swatch.faint { background: #FFFFFF; box-shadow: inset 0 0 0 1px var(--evp-border-strong); }
+/* 가림(█) 한 덩어리 = 짧은 표시 하나(줄을 넘기지 않음) */
+.pg-evp-redact { display: inline-block; margin: 0 1px; padding: 0 5px; border: 1px solid var(--evp-border-strong); border-radius: 4px; background: var(--evp-surface-3); color: var(--evp-text-2); font-size: 12px; line-height: 16px; font-weight: 600; white-space: nowrap; vertical-align: 1px; }
+mark.pg-evp-diff .pg-evp-redact { background: #FFF6CC; }
+@media (max-width: 900px) {
+  .pg-evp-pair { grid-template-columns: minmax(0, 1fr); }
+  .pg-evp-pair .pg-evp-scroll { max-height: 480px; }   /* 화면 높이(vh) 기준이면 브라우저 높이가 바뀔 때 처음 맞춘 스크롤 위치가 어긋난다 */
+}
+
+/* 글 구조(2026-10-16 3차 보강): 추출 텍스트의 문단·번호 제목·' | ' 표를 문서처럼(utils/textStructure) */
+.pg-evp-text > .pg-evp-p { margin: 0 0 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pg-evp-text > .pg-evp-h { margin: 18px 0 6px; color: var(--evp-text); font-size: 15px; line-height: 24px; font-weight: 700; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pg-evp-text > .pg-evp-h:first-child { margin-top: 0; }
+.pg-evp-gap { height: 8px; }
+.pg-evp-table-wrap { margin: 8px 0 12px; overflow-x: auto; }
+.pg-evp-table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.55; white-space: normal; }
+.pg-evp-table :is(th, td) { padding: 5px 8px; border: 1px solid var(--evp-border); text-align: left; vertical-align: top; overflow-wrap: anywhere; word-break: keep-all; }
+.pg-evp-table th { background: var(--evp-surface-2); color: var(--evp-text); font-weight: 700; }
+.pg-evp-table-wrap.is-faint .pg-evp-table :is(th, td) { border-color: #ECEFED; }
+.pg-evp-table-wrap.is-faint th { background: #FBFBFA; }
+
+/* 세부 정보(맨 아래 접기 하나) */
+.pg-evp-details { margin: 4px 0 0; border-top: 1px solid var(--evp-border); color: var(--evp-text); }
+.pg-evp-details > summary { padding: 10px 0; color: var(--evp-text-2); font-size: 13px; line-height: 20px; font-weight: 600; cursor: pointer; }
+.pg-evp-details > summary:hover { color: var(--evp-text); }
+.pg-evp-details-group { padding: 4px 0 12px; }
+.pg-evp-details-group + .pg-evp-details-group { padding-top: 12px; border-top: 1px dashed var(--evp-border); }
+.pg-evp-details-group h4 { margin: 0 0 6px; color: var(--evp-text); font-size: 13px; line-height: 20px; font-weight: 700; }
+.pg-evp-details-group p { margin: 0 0 4px; color: var(--evp-text-2); font-size: 12px; line-height: 18px; }
+.pg-evp-details-group dl { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 6px 16px; margin: 0; font-size: 12px; line-height: 18px; }
+.pg-evp-details-group dl > div { display: contents; }
+.pg-evp-details-group dt { color: var(--evp-text-3); font-weight: 600; }
+.pg-evp-details-group dd { margin: 0; color: var(--evp-text); overflow-wrap: anywhere; }
+.pg-evp-details-group dd a { color: var(--evp-brand); font-weight: 600; }
+
+/* 파일 마스킹 전·후: 같은 종이 규칙(FileComparisonView layout='page') */
+.pg-evp-file { display: grid; gap: 12px; min-width: 0; margin: 4px 0 16px; color: var(--evp-text); }
+.pg-evp-file .pg-evp-scroll { padding: 24px 20px; }
+.pg-evp-file .dops-file-papers { gap: 20px; }
+.pg-evp-file .dops-file-papers:not(.side) { max-width: 880px; margin: 0 auto; }
+.pg-evp-file .dops-file-papers.wide:not(.side) { max-width: none; }
+.pg-evp-file .dops-file-paper { padding: 40px 40px 32px; border: 0; border-radius: 0; background: var(--evp-surface); color: var(--evp-text); box-shadow: 0 1px 3px rgba(16, 32, 26, .16), 0 0 0 1px rgba(16, 32, 26, .04); font-size: 13.5px; }
+.pg-evp-file .dops-file-paper-label { position: static; justify-self: start; margin: -20px 0 8px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--evp-text-3); font-size: 12px; line-height: 16px; font-weight: 600; }
+.pg-evp-file .dops-file-sheet-group > .dops-file-sheet-name { margin: 0 0 8px; color: var(--evp-text-2); font-size: 12px; font-weight: 600; }
+.pg-evp-file .dops-file-sheet-group + .dops-file-sheet-group { margin-top: 20px; }
+.pg-evp-file .pg-evp-note { margin: 0; color: var(--evp-text-2); font-size: 12px; line-height: 18px; }
+
+@media (max-width: 640px) {
+  .pg-evp-summary > span { padding: 0 10px 0 0; border-left: 0; }
+  .pg-evp-summary > span:first-of-type { margin-left: 0; }
+  .pg-evp-summary .pg-evp-doc, .pg-evp-summary .pg-evp-name { flex-basis: calc(100% - 22px); }
+  .pg-evp-scroll, .pg-evp-file .pg-evp-scroll { max-height: 72vh; padding: 12px 8px; }
+  .pg-evp-paper, .pg-evp-pair .pg-evp-paper { padding: 20px 16px; }
+  .pg-evp-table :is(th, td) { min-width: 5.5em; padding: 4px 6px; }   /* 좁은 폭: 칸이 글자 단위로 잘게 접히지 않게, 넘치면 표만 가로 스크롤 */
+  .pg-evp-table { font-size: 12.5px; }
+  .pg-evp-file .dops-file-paper { padding: 28px 14px 18px; }
+  .pg-evp-file .dops-file-paper-label { margin-top: -14px; }
+  .pg-evp-details-group dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .pg-evp-details-group dd + dt, .pg-evp-details-group dl > div + div dt { margin-top: 6px; }
+}
