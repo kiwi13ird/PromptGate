@@ -1,0 +1,17 @@
+[Unit]
+Description=LLM Security Gateway mitmproxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu
+ExecStart=/usr/bin/mitmdump --listen-port 8080 --set block_global=false -s /home/ubuntu/llm_gateway_addon.py
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

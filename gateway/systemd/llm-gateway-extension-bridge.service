@@ -1,0 +1,17 @@
+[Unit]
+Description=LLM Gateway extension WebSocket bridge
+After=network-online.target llm-gateway-8081.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/llm-gateway
+ExecStart=/home/ubuntu/llm-gateway/.venv/bin/python /home/ubuntu/llm-gateway/websocket_server.py
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
