@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "gatewayHost": { "title": "Gateway host", "description": "Managed Gateway DNS hostname or IPv4 address", "type": "string" },
+    "gatewayPort": { "title": "Gateway port", "description": "Validated at runtime as 1-65535", "type": "integer" },
+    "identityEnabled": { "title": "Enable identity header POC", "type": "boolean" },
+    "tenantId": { "title": "Tenant ID", "description": "Validated at runtime as 1-64 safe characters", "type": "string" },
+    "eventChannelEnabled": { "title": "Enable Security Event Channel", "type": "boolean" },
+    "eventChannelUrl": { "title": "Security Event Channel URL", "description": "WSS, or localhost WS in development mode", "type": "string" },
+    "dashboardBaseUrl": { "title": "Dashboard base URL", "description": "Optional future integration base URL", "type": "string" },
+    "protectionEnabled": { "title": "Require or disable protection", "type": "boolean" },
+    "developmentMode": { "title": "Allow development settings", "type": "boolean" }
+  }
+}

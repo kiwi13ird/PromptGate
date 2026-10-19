@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "minimum_chrome_version": "116",
+  "name": "PromptGate",
+  "version": "1.4.8",
+  "description": "Claude·ChatGPT·Gemini 같은 AI 사이트를 안전하게 쓰도록 보호하고 처리 내역을 알려 주는 기업용 보안 확장 프로그램",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvdtEBeKha9+wqb8MrH1ASkF8fd/kx8+hPHo7xnPN1ujYEpx+Xx4Yxnfx1wSuUkm/vi+CRj+Nq+aFh4sXOImFQQcpeFQuXg5mA/KsGTSaoyeYodhQ0/Qv83+Cht6YR8gf5TLybBTb3cjfuBVsO0/QnVSww1AQIZfORE29DcUvnZq6qxyypWa1jUClgHXGsZTXleVyVPPSKbGdGvqLI463YBldnRWninAb2evuE7LcZ2LXOPi+KXwiQ7ApVm+SQvzmcPbwA4poJ2AkC48BchKQdrNEDU4xPR7BmO5HNJDGoOcqdO9xZY5C+gTsAfAJLzz5E//CD2NJdA0fTSyLiuRoUQIDAQAB",
+  "permissions": [
+    "proxy",
+    "storage",
+    "alarms",
+    "declarativeNetRequestWithHostAccess",
+    "notifications"
+  ],
+  "host_permissions": [
+    "http://llm-gateway.local/*",
+    "*://chatgpt.com/*",
+    "*://*.chatgpt.com/*",
+    "*://openai.com/*",
+    "*://*.openai.com/*",
+    "*://oaistatic.com/*",
+    "*://*.oaistatic.com/*",
+    "*://oaiusercontent.com/*",
+    "*://*.oaiusercontent.com/*",
+    "*://gemini.google.com/*",
+    "*://*.gemini.google.com/*",
+    "*://claude.ai/*",
+    "*://*.claude.ai/*",
+    "*://anthropic.com/*",
+    "*://*.anthropic.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "assets/icon-16.png",
+    "32": "assets/icon-32.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "PromptGate",
+    "default_icon": {
+      "16": "assets/icon-16.png",
+      "32": "assets/icon-32.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "storage": {
+    "managed_schema": "managed-policy-schema.json"
+  }
+}

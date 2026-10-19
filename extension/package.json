@@ -1,0 +1,6 @@
+{
+  "name": "llm-security-gateway-enterprise-client",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node tests/run-tests.mjs", "check": "node tests/run-tests.mjs" }
+}
