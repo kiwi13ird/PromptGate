@@ -1,0 +1,29 @@
+[Unit]
+Description=LLM judge - vLLM (Qwen3-8B, 127.0.0.1:8000)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/judge
+# 서빙 중에는 외부로 나가지 않는다(모델은 로컬 디렉터리, 사용 통계 끔)
+Environment=HF_HUB_OFFLINE=1
+Environment=VLLM_NO_USAGE_STATS=1
+Environment=DO_NOT_TRACK=1
+# FlashInfer 샘플러는 기동 시 커널을 JIT 컴파일하려고 nvcc(/usr/local/cuda)를 찾는데 이 AMI에는 없다.
+# 판정은 temperature 0(greedy)이라 top-k/top-p 커널을 쓰지 않으므로 PyTorch 기본 샘플러로 충분하다.
+Environment=VLLM_USE_FLASHINFER_SAMPLER=0
+ExecStart=/opt/judge/.venv/bin/vllm serve /opt/models/Qwen3-8B \
+  --served-model-name qwen3-8b \
+  --host 127.0.0.1 --port 8000 \
+  --dtype bfloat16 \
+  --max-model-len 8192 \
+  --gpu-memory-utilization 0.90 \
+  --enable-prefix-caching \
+  --seed 0
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target
