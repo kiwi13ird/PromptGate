@@ -13,3 +13,15 @@ desktop.ini
 pg.env
 *.pem
 *.log
+
+# 2026-10-19 서버 동기화: 운영 로그·상태 DB·비밀값·런타임 산출물
+logs/
+var/
+*.jsonl.gz
+*.db
+*.env
+.env.production.local
+pg.env
+review_artifacts/
+server-backup-*/
+dist-real*/
