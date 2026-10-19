@@ -8,6 +8,8 @@
   중복 행이 생기지 않게 한다. `request_id`(Gateway 발급)는 중복될 수 있다.
 - `ts`는 요청을 받은 시각(유닉스 초).
 - 원문(prompt)이 들어가므로 파일 권한 0600.
+- `masked_text`·`findings`(2026-10-09): 가렸을 때만 채운다. 둘 다 `prompt`와 같은 정규화 좌표다 - 기록 화면이 원문과
+  나란히 놓고 가린 자리를 표시한다. `findings`에는 값 없이 위치·유형·바꾼 값만 있다. `block_order`는 파일 칸의 본문 순번.
 - 한 줄은 잠금 안에서 한 번의 write로 쓰고 flush한다 - 전송 서비스는 줄바꿈으로 끝난 줄만 읽으므로 반쯤 쓴 줄을
   읽지 않는다. 프로세스가 죽어도 write가 끝난 줄은 OS에 넘어가 있다(인스턴스 전원 차단은 대상 밖).
 - 회전: MAX_BYTES에 닿으면 decisions.jsonl.1 … .{BACKUPS} 로 이름을 밀어낸다. 이름만 바뀌고 파일 식별자(inode)는
@@ -31,9 +33,10 @@ MAX_BYTES = 50 * 1024 * 1024
 BACKUPS = 9
 
 # DB decisions 표와 같은 열(prompt_kept 제외). 로그 한 줄도 이 순서로 쓴다.
-COLUMNS = ("decision_id", "request_id", "ts", "service", "format", "text_chars", "blocked", "decided_by", "doc_id",
-           "doc_span", "input_span", "score", "pii_hits", "reason", "hash_status", "signature_status", "total_ms",
-           "prompt")
+COLUMNS = ("decision_id", "request_id", "ts", "service", "content_type", "filename", "format", "text_chars",
+           "blocked", "decided_by", "doc_id", "doc_span", "input_span", "score", "match_rate", "pii_hits",
+           "reason", "hash_status", "signature_status", "total_ms", "prompt", "document_ref",
+           "masked_text", "findings", "block_order")
 
 
 def ordered(record: dict[str, Any]) -> dict[str, Any]:

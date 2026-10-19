@@ -12,6 +12,7 @@ PDF든 DOCX든, 뭐가 됐든 하나의 함수에 넣으면 정규화까지 끝�
        pdf  -> pdf_parser.parse_pdf()  -> 정규화
        docx -> docx_parser.parse_docx() -> 정규화
        xlsx -> xlsx_parser.parse_xlsx() -> 정규화
+       hwp  -> hwp_parser.parse_hwp()   -> 정규화 (hwpx -> parse_hwpx, 2026-10-11)
        그 외(포맷 시그니처가 안 잡힘) -> UTF-8 텍스트로 읽어본다.
            읽히면 자연어 입력으로 간주해 정규화만 수행 (예: 순수 .txt 파일)
            안 읽히면 지원 대상이 아닌 바이너리로 보고 실패 반환 (FR-PRE-008)
@@ -30,10 +31,12 @@ from .docx_parser import parse_docx
 from .errors import UnsupportedFormatError
 from .format_detect import detect_format
 from .pdf_parser import parse_pdf
-from .pipeline import ParsedDocument, build_text_document, run_parser
+from .pipeline import ParsedDocument, build_text_document, lazy_parse_hwp, lazy_parse_hwpx, run_parser
 from .xlsx_parser import parse_xlsx
 
-_CONTENT_PARSERS = {"pdf": parse_pdf, "docx": parse_docx, "xlsx": parse_xlsx}
+# hwp·hwpx는 함수 안에서 hwp_parser를 import하는 감싼 함수(패키지 import 때 hwp 모듈을 싣지 않음)
+_CONTENT_PARSERS = {"pdf": parse_pdf, "docx": parse_docx, "xlsx": parse_xlsx,
+                    "hwp": lazy_parse_hwp, "hwpx": lazy_parse_hwpx}
 
 
 def _is_existing_file(value: str) -> bool:
@@ -46,7 +49,7 @@ def _is_existing_file(value: str) -> bool:
 
 
 def process_input(value: str) -> ParsedDocument:
-    """자연어 문자열 또는 PDF/DOCX(/XLSX) 파일 경로를 받아 정규화된 ParsedDocument를 만든다."""
+    """자연어 문자열 또는 PDF/DOCX/XLSX/HWP/HWPX 파일 경로를 받아 정규화된 ParsedDocument를 만든다."""
     if not _is_existing_file(value):
         return build_text_document(value, source_label="<자연어 입력>")
 
@@ -61,7 +64,7 @@ def process_input(value: str) -> ParsedDocument:
         # ZIP 시그니처는 있지만 docx/xlsx 내부 구조가 없다 - 손상된 docx/xlsx이거나
         # 지원 대상이 아닌 다른 zip 기반 포맷(pptx, odt, 일반 zip 등)이다. 둘 다
         # "자연어로 읽어보자"가 아니라 명시적 실패로 다뤄야 한다.
-        err = UnsupportedFormatError("zip (docx/xlsx 시그니처 없음 - 손상되었거나 지원 대상이 아님)")
+        err = UnsupportedFormatError("zip (docx/xlsx/hwpx 시그니처 없음 - 손상되었거나 지원 대상이 아님)")
         return ParsedDocument(
             path=str(path),
             format=fmt,

@@ -10,13 +10,19 @@ Gateway·대시보드가 쓰는 것(문서·구간·일치율·패턴 건수·�
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
+from typing import Literal
 
 
 class SourceInfo(BaseModel):
     service: str | None = None
-    content_type: str | None = None
+    content_type: str | None = None  # "prompt" | "file" - Gateway가 항목별로 나눠 보낸다(2026-09-23)
+    filename: str | None = None  # 파일 항목일 때 파일명. 필드가 없으면 pydantic이 값을 조용히 버린다
     format: str | None = None
     endpoint: str | None = None
+    context_label: Literal['KR_BANK_ACCOUNT', 'KR_ADDRESS', 'KR_POSTAL_CODE', 'KR_DATE_OF_BIRTH', 'PASSWORD', 'GENERIC_API_KEY'] | None = None
+    signature_original_offsets: bool = False  # File segments only; WindowHash normalization is unchanged.
+    # 파일 칸이 본문에서 몇 번째 덩어리(문단·표)에 있었는지. 기록 화면에서 문단과 표의 앞뒤를 되살리는 데만 쓴다(2026-10-09)
+    block_order: int | None = Field(default=None, ge=0, le=1_000_000)
 
 
 class DetectRequest(BaseModel):
@@ -40,6 +46,20 @@ class GatewayDecision(BaseModel):
     http_status: int | None = None
 
 
+class MaskSpan(BaseModel):
+    """Gateway가 원문 값을 받지 않고도 치환할 수 있는 정규화 텍스트 좌표."""
+
+    start: int = Field(ge=0)
+    end: int = Field(gt=0)
+    entity_type: str = Field(min_length=1, max_length=100)
+
+
+class Finding(MaskSpan):
+    score: float = 0.0
+    policy_action: str
+    replacement: str | None = None
+
+
 class DetectResponse(BaseModel):
     """decisions 행과 같은 열. 순서도 같다."""
 
@@ -49,10 +69,16 @@ class DetectResponse(BaseModel):
     doc_id: str | None = None  # 해시 차단일 때 근거 문서
     doc_span: str | None = None  # 문서 쪽 구간 "216-516" (정규화 텍스트 좌표)
     input_span: str | None = None  # 입력 쪽 구간 "0-300"
-    score: float | None = None  # 일치율 0~1
+    score: float | None = None  # 표본 추정치(창 기준). 일치 위치에 따라 달라지므로 보고용으로 쓰지 말 것
+    match_rate: float | None = None  # 확인된 일치 창 원문 구간 합집합 / 입력 글자 수. 표본 조회면 보수적 값; 전체 문서 유사도 아님
     pii_hits: str | None = None  # 패턴 차단일 때 "KR_RRN:1,KR_PHONE:2" (값 없음)
     reason: str  # 사람용 한 줄
     hash_status: str  # "ok" | "error"
     signature_status: str  # "ok" | "error" | "skipped"
     total_ms: float = 0.0
+    mask_spans: list[MaskSpan] = Field(default_factory=list)
+    findings: list[Finding] = Field(default_factory=list)
+    masked_text: str | None = None
+    policy_id: str | None = None
+    policy_version: int | None = None
     decision: GatewayDecision = Field(default_factory=lambda: GatewayDecision(action="allow", reason_code="none"))

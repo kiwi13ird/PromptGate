@@ -4,4 +4,6 @@ openpyxl==3.1.5
 # PyMuPDF는 AGPL-3.0(또는 Artifex 상용 라이선스) - 실험/데모 환경 전용.
 # 상용 배포 전 pdfplumber(MIT)로 되돌리거나 Artifex 상용 라이선스를 구매할 것.
 PyMuPDF==1.27.2.3
+# HWP 5.0(CFB) 읽기 - hwpdoc.py가 함수 안에서 import. BSD, 순수 파이썬(2026-10-11 HWP 등록)
+olefile==0.47
 pytest==9.0.3

@@ -26,7 +26,22 @@ from .normalizer import normalize_text
 from .pdf_parser import parse_pdf
 from .xlsx_parser import parse_xlsx
 
-SUPPORTED_EXTENSIONS = {".pdf": parse_pdf, ".docx": parse_docx, ".xlsx": parse_xlsx}
+
+def lazy_parse_hwp(path):
+    """HWP 파서를 부를 때 import한다 - preprocessing 패키지 import(= /detect 기동 경로)에 hwp 모듈을 싣지 않으려고."""
+    from .hwp_parser import parse_hwp  # noqa: PLC0415
+
+    return parse_hwp(path)
+
+
+def lazy_parse_hwpx(path):
+    from .hwp_parser import parse_hwpx  # noqa: PLC0415
+
+    return parse_hwpx(path)
+
+
+SUPPORTED_EXTENSIONS = {".pdf": parse_pdf, ".docx": parse_docx, ".xlsx": parse_xlsx,
+                        ".hwp": lazy_parse_hwp, ".hwpx": lazy_parse_hwpx}
 
 
 @dataclass

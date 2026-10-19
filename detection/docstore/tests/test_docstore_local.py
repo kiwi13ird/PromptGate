@@ -19,7 +19,7 @@ from preprocessing.router import process_input  # noqa: E402
 from windowhash import engine, index, store  # noqa: E402
 from windowhash.ingest import ingest_file  # noqa: E402
 
-TESTBED = Path(__file__).resolve().parents[3] / "test" / "testbed" / "generated"
+TESTBED = Path(__file__).resolve().parents[3] / "docs" / "testbed-dataset" / "generated"
 SAMPLE_PDF = Path(__file__).resolve().parents[3] / "docs" / "handoff" / "인프라_설계안.pdf"  # 기밀문서 20종에는 PDF가 없다
 
 

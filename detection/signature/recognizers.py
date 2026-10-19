@@ -29,6 +29,7 @@ class RegexRecognizer:
         required_contexts: tuple[str, ...] = (),
     ) -> None:
         self.entity_type = entity_type
+        self.category = "PII"
         self._pattern: Pattern[str] = re.compile(pattern, flags)
         self._score = score
         self._validator = validator

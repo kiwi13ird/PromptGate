@@ -7,6 +7,12 @@
                         → index_status='indexed', index_windows, normalized_text, text_chars, format, indexed_at
      status='retired' : index.remove_doc → index_status='indexed', index_windows=0 (텍스트는 남김)
   3. 실패 → index_status='error', index_error. `docstore.cli reindex`로 다시 대기시킨다.
+  4. 색인 성공(indexed) → 키워드 DB(KEYWORD_DB)에 추출 작업을 넣는다(docstore.keyword_extractor가 처리).
+     키워드 DB가 없거나 실패해도 색인은 성공으로 끝난다 - 키워드는 부가 기능이다.
+  5. 키워드 DB 맞추기(KeywordSync, 2026-10-16): 매 주기 RDS 문서 상태를 키워드 DB `doc_states`로 옮긴다. 보호 여부가 바뀌면
+     탐지 API `/admin/reload-signatures`를 불러 보호 중지 문서의 승인 키워드를 탐지에서 빼거나 되살린다(실패하면 다음 주기에 다시).
+     문서 집합이 바뀌거나(색인 완료·중지·상태 변경) 문서 수를 안 센 키워드가 있으면 키워드마다 '보호 문서 몇 개에 나오는가'를
+     다시 세 reason_check에 쓴다. 이 단계의 실패도 색인을 멈추지 않는다.
   끝 상태는 **잡을 때의 version·'indexing'일 때만** 쓴다. 도중에 재등록·퇴역되면(version 증가·pending) 덮어쓰지 않고
   다음 차례에 새 상태로 다시 처리한다.
 
@@ -16,11 +22,13 @@ CPU는 systemd에서 제한한다(Nice·CPUQuota) - 같은 인스턴스의 탐�
 
 실행: python -m docstore.indexer            환경변수 DETECTION_PG_DSN, REDIS_DB/REDIS_PASSWORD(탐지 API와 같은 DB 번호)
       python -m docstore.indexer --once     대기 행을 모두 처리하고 끝낸다
+      python -m docstore.indexer --sync-keywords   키워드 DB 맞추기(상태·문서 수)만 한 번 하고 결과를 출력한다
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import multiprocessing as mp
 import os
@@ -28,6 +36,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
@@ -36,6 +45,9 @@ log = logging.getLogger("docstore.indexer")
 POLL_SECONDS = 5.0
 PARSE_TIMEOUT = 1800.0
 MAX_BACKOFF = 60.0
+RELOAD_URL = os.environ.get("DETECTION_RELOAD_URL", "http://127.0.0.1:8000/admin/reload-signatures")
+RELOAD_TIMEOUT = 10.0
+ACTIVE_TEXTS_SQL = "SELECT normalized_text FROM documents WHERE status = 'active' AND normalized_text IS NOT NULL"
 
 CLAIM_SQL = (
     "UPDATE documents SET index_status = 'indexing' "
@@ -112,11 +124,15 @@ def index_one(conn: Any, r: Any, row: dict[str, Any],
               parse: Callable[[str, bytes], tuple[str, str]] = parse_document) -> dict[str, Any]:
     """잡은 행 하나를 처리한다. 결과 dict: outcome = indexed | retired | error | superseded."""
     from windowhash import engine, index
+    from detection_service.document_evidence import begin_update, finish_update, archive
 
     doc_id, version = row["doc_id"], row["version"]
     t0 = time.perf_counter()
+    updating = False
     try:
         if row["status"] == "retired":
+            begin_update(r, doc_id)
+            updating = True
             removed = index.remove_doc(r, doc_id)
             with conn.cursor() as cur:
                 cur.execute("UPDATE documents SET index_status = 'indexed', index_windows = 0, index_error = NULL, "
@@ -130,6 +146,8 @@ def index_one(conn: Any, r: Any, row: dict[str, Any],
         windows = engine.document_windows(text)
         if not windows:
             raise ParseError(f"창이 없습니다(한글·영문·숫자 {len(engine.compact(text).codes)}자 < 창 길이)")
+        begin_update(r, doc_id)
+        updating = True
         stats = index.replace_doc_windows(r, doc_id, windows)
         with conn.cursor() as cur:
             cur.execute("UPDATE documents SET index_status = 'indexed', index_windows = %s, normalized_text = %s, "
@@ -137,6 +155,8 @@ def index_one(conn: Any, r: Any, row: dict[str, Any],
                         "WHERE doc_id = %s AND version = %s AND status = 'active' AND index_status = 'indexing'",
                         (len(windows), text, len(text), fmt, doc_id, version))
             done = cur.rowcount == 1
+        if done:
+            archive(conn, r, row, text)
         return {"doc_id": doc_id, "outcome": "indexed" if done else "superseded", **stats, "text_chars": len(text),
                 "seconds": round(time.perf_counter() - t0, 2)}
     except Exception as exc:
@@ -147,11 +167,27 @@ def index_one(conn: Any, r: Any, row: dict[str, Any],
             cur.execute("UPDATE documents SET index_status = 'error', index_error = %s "
                         "WHERE doc_id = %s AND version = %s AND index_status = 'indexing'", (msg, doc_id, version))
         return {"doc_id": doc_id, "outcome": "error", "error": msg, "seconds": round(time.perf_counter() - t0, 2)}
+    finally:
+        if updating:
+            finish_update(r)
 
 
 def _is_connection_error(exc: BaseException) -> bool:
     names = {c.__name__ for c in type(exc).__mro__}
     return bool(names & {"OperationalError", "InterfaceError", "ConnectionError", "TimeoutError"})
+
+
+def enqueue_keyword_job(doc_id: str, version: int) -> dict | None:
+    """색인이 끝난 문서의 키워드 추출 작업을 넣는다. 키워드 DB가 설정 안 됐거나 실패하면 None(색인 결과는 그대로)."""
+    from detection_service import keyword_store
+
+    if keyword_store.unavailable_reason() is not None:
+        return None
+    try:
+        return keyword_store.enqueue_job(doc_id, version)
+    except Exception as exc:  # noqa: BLE001 - 키워드 큐 실패가 색인을 실패시키지 않는다
+        log.warning("keyword job enqueue failed for %s: %s", doc_id, exc)
+        return None
 
 
 def run_pending(conn: Any, r: Any, parse=parse_document) -> list[dict[str, Any]]:
@@ -161,14 +197,75 @@ def run_pending(conn: Any, r: Any, parse=parse_document) -> list[dict[str, Any]]
         if row is None:
             return results
         res = index_one(conn, r, row, parse)
+        if res["outcome"] == "indexed":
+            job = enqueue_keyword_job(row["doc_id"], row["version"])
+            res["keyword_job"] = job["id"] if job else None
         log.info("%s", res)
         results.append(res)
 
 
-def run(dsn: str, r: Any, stop: threading.Event | None = None, *, poll: float = POLL_SECONDS) -> None:
+def request_reload(url: str = RELOAD_URL, timeout: float = RELOAD_TIMEOUT) -> bool:
+    """탐지 API에 키워드·시그니처 재로딩을 요청한다. 성공(2xx)이면 True. 예외를 올리지 않는다."""
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, data=b"", method="POST"), timeout=timeout) as resp:
+            return 200 <= resp.status < 300
+    except Exception as exc:  # noqa: BLE001 - 다음 주기에 다시 부른다
+        log.warning("detection reload failed: %s", exc)
+        return False
+
+
+class KeywordSync:
+    """키워드 DB를 RDS 문서에 맞춘다(모듈 docstring 5번). step()은 색인 주기마다 불린다."""
+
+    def __init__(self, reload: Callable[[], bool] = request_reload) -> None:
+        self.reload = reload
+        self.reload_pending = False
+        self.counted = False      # 시작 후 첫 주기에는 한 번 센다
+
+    def step(self, conn: Any, results: list[dict[str, Any]] = (), *, force_count: bool = False) -> dict | None:
+        import sqlite3
+
+        from detection_service import keyword_store
+
+        if keyword_store.unavailable_reason() is not None:
+            return None
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT doc_id, status, version FROM documents")
+                states = cur.fetchall()
+            changed = keyword_store.sync_doc_states(states)
+            if changed:
+                self.reload_pending = True
+            out: dict[str, Any] = {"documents": len(states), "state_changed": len(changed)}
+            docs_changed = any(x.get("outcome") in ("indexed", "retired") for x in results)
+            if force_count or not self.counted or changed or docs_changed or keyword_store.missing_doc_counts():
+                with conn.cursor() as cur:
+                    cur.execute(ACTIVE_TEXTS_SQL)
+                    texts = [row[0] for row in cur.fetchall()]
+                out["counts"] = keyword_store.refresh_doc_counts(texts)
+                self.counted = True
+            if self.reload_pending:
+                self.reload_pending = not self.reload()
+                out["reloaded"] = not self.reload_pending
+            if changed or "counts" in out:
+                log.info("keyword sync %s", out)   # 키워드 값·문서 이름은 남기지 않는다(건수만)
+            return out
+        except sqlite3.Error as exc:
+            log.warning("keyword sync failed (keyword DB): %s", exc)
+            return None
+        except Exception as exc:
+            if _is_connection_error(exc):
+                raise  # RDS 연결 문제 - 위 반복이 다시 연결한다
+            log.warning("keyword sync failed: %s", exc)
+            return None
+
+
+def run(dsn: str, r: Any, stop: threading.Event | None = None, *, poll: float = POLL_SECONDS,
+        sync: KeywordSync | None = None) -> None:
     from detection_service.pg_store import _default_connect
 
     stop = stop or threading.Event()
+    sync = sync or KeywordSync()
     conn = None
     backoff = 1.0
     while not stop.is_set():
@@ -178,7 +275,8 @@ def run(dsn: str, r: Any, stop: threading.Event | None = None, *, poll: float = 
                 n = recover(conn)
                 if n:
                     log.warning("recovered %d rows stuck in 'indexing'", n)
-            run_pending(conn, r)
+            results = run_pending(conn, r)
+            sync.step(conn, results)
             backoff = 1.0
             stop.wait(poll)
         except Exception as exc:
@@ -200,18 +298,32 @@ def main(argv: list[str] | None = None) -> int:
 
     ap = argparse.ArgumentParser(description="RDS documents → Redis window-hash index")
     ap.add_argument("--once", action="store_true", help="대기 행을 모두 처리하고 끝낸다")
+    ap.add_argument("--sync-keywords", action="store_true", help="키워드 DB 맞추기(상태·문서 수)만 한 번 하고 끝낸다")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     dsn = os.environ.get("DETECTION_PG_DSN", "").strip()
     if not dsn:
         log.error("DETECTION_PG_DSN is not set")
         return 2
+    from detection_service import keyword_store
+
+    if not keyword_store.configure_database(os.environ.get("KEYWORD_DB")):
+        log.warning("keyword DB unavailable - no keyword extraction jobs: %s", keyword_store.unavailable_reason())
+    if args.sync_keywords:
+        conn = _default_connect(dsn)
+        try:
+            out = KeywordSync().step(conn, force_count=True)
+        finally:
+            conn.close()
+        print(json.dumps(out, ensure_ascii=False))
+        return 0 if out is not None else 1
     r = connect_redis()
     log.info("indexer start: redis db%s", r.connection_pool.connection_kwargs.get("db"))
     if args.once:
         conn = _default_connect(dsn)
         recover(conn)
         results = run_pending(conn, r)
+        KeywordSync().step(conn, results)
         conn.close()
         return 1 if any(x["outcome"] == "error" for x in results) else 0
     run(dsn, r)

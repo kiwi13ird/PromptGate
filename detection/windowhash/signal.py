@@ -27,6 +27,10 @@ class HashSignal:
     entity_type   신호 종류(엔진의 ENTITY_TYPE)
     start, end    입력 쪽 구간(정규화 텍스트 오프셋). 가장 큰 덩어리의 첫 창 시작 ~ 마지막 창 끝
     score         입력 덮임 비율(0~1): 조회한 입력 창 중 이 문서와 일치한 창의 비율. 근거가 나온 뒤는 표본(50개마다 1개)으로 추정. 정보용, 판정은 창 존재 여부
+                  **표본 추정치라 일치 위치에 따라 값이 달라진다 - 보고용으로 쓰지 말 것.** 대신 match_rate를 쓴다
+    match_rate    확인된 개별 일치 창의 원문 구간 합집합 / 정규화 입력 전체 글자 수(0~1).
+                  미일치한 중간 구간은 제외. 공백·구두점은 창 내부에 포함될 수 있으며 전체 문서 유사도가 아님.
+                  긴 입력의 표본 조회에서는 관측된 창만 센 보수적 값(실제 일치 구간은 더 넓을 수 있음).
     x_score_raw   가장 큰 덩어리의 고유 일치 창 수(근거의 양)
     x_score_kind  "coverage"
     x_detector    엔진 이름
@@ -41,6 +45,7 @@ class HashSignal:
     end: int
     score: float
     x_score_raw: float
+    match_rate: float = 0.0
     x_score_kind: str = "coverage"
     x_detector: str = "WindowHash"
     x_evidence: str = ""
@@ -48,3 +53,4 @@ class HashSignal:
     x_chunk_span: str = ""
     x_examined: int = 0
     x_spans: tuple[MatchSpan, ...] = field(default_factory=tuple)
+    x_coverage_sampled: bool = False

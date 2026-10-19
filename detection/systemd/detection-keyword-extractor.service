@@ -1,0 +1,23 @@
+[Unit]
+Description=KISIA DLP keyword extractor (keyword_jobs -> GPU LLM -> doc_keywords pending)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/detection/src
+EnvironmentFile=/opt/detection/pg.env
+Environment=KEYWORD_DB=<hidden>
+Environment=KEYWORD_LLM_URL=<hidden>
+Environment=KEYWORD_EXTRACTOR_STATUS=<hidden>
+# 무관 말뭉치(DART 문단) - 후보마다 neg_hits(오탐 위험)를 계산해 승인 화면에 보여준다. 없으면 neg_hits가 비어 있다
+Environment=KEYWORD_NEG_CORPUS=<hidden>
+ExecStart=/opt/detection/src/.venv/bin/python -m docstore.keyword_extractor
+Restart=always
+RestartSec=10
+# GPU가 꺼져 있으면 30초마다 /v1/models만 확인하고 작업은 쌓아 둔다. 탐지 API 응답을 지키려고 우선순위를 낮춘다
+Nice=10
+CPUQuota=25%
+
+[Install]
+WantedBy=multi-user.target

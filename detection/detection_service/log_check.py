@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -33,6 +34,10 @@ def scan(log_path: Path, offset: Offset | None, backups: int = BACKUPS) -> dict[
     if offset is not None and offset.ino is not None:
         for i, p in enumerate(chain):
             if p.exists() and p.stat().st_ino == offset.ino:
+                if offset.head_sha256:
+                    with p.open('rb') as f:
+                        if hashlib.sha256(f.read(offset.head_bytes)).hexdigest()!=offset.head_sha256:
+                            continue
                 off_idx = i
     shipped: list[str] = []
     pending: list[str] = []

@@ -14,7 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-SUPPORTED_FORMATS = ("pdf", "docx", "xlsx")
+SUPPORTED_FORMATS = ("pdf", "docx", "xlsx", "hwp", "hwpx")
+_CFB_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 _LIST_COLUMNS = ("doc_id", "filename", "format", "version", "title", "classification", "status", "index_status",
                  "index_windows", "text_chars", "index_error", "registered_at", "registered_by", "indexed_at",
@@ -25,8 +26,14 @@ class UnsupportedDocument(ValueError):
     pass
 
 
+def _sniff_hwp(data: bytes) -> str | None:
+    from preprocessing.hwpdoc import sniff  # noqa: PLC0415 - olefile·hwp 모듈은 쓸 때만 싣는다
+
+    return sniff(data)
+
+
 def detect_format(data: bytes) -> str:
-    """preprocessing.format_detect.detect_format과 같은 규칙을 바이트에 적용한다."""
+    """preprocessing.format_detect.detect_format과 같은 규칙을 바이트에 적용한다(HWP·HWPX는 hwpdoc.sniff)."""
     if data.startswith(b"%PDF-"):
         return "pdf"
     if data[:4] in (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08"):
@@ -39,7 +46,11 @@ def detect_format(data: bytes) -> str:
             return "docx"
         if "xl/workbook.xml" in names:
             return "xlsx"
+        if _sniff_hwp(data) == "hwpx":
+            return "hwpx"
         return "zip-unknown"
+    if data[:8] == _CFB_MAGIC and _sniff_hwp(data) == "hwp":
+        return "hwp"
     return "binary-unknown"
 
 

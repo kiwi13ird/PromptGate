@@ -19,7 +19,7 @@ from collections import defaultdict
 import redis
 
 from . import index, store
-from .hashing import Compact, compact, window_hashes, window_span
+from .hashing import WINDOW, Compact, compact, window_hashes, window_span
 from .signal import HashSignal, MatchSpan
 
 NAME = "WindowHash"
@@ -83,13 +83,14 @@ def query(r: redis.Redis, text: str) -> list[HashSignal]:
         b += LOOKUP_BATCH
         if matches and len(positions) == len(hashes):
             positions = positions[:b] + positions[b::SAMPLE_STRIDE]  # 이후는 표본 조회
-    return [_signal(comp, doc_id, doc_matches, examined) for doc_id, doc_matches in matches.items()]
+    return [_signal(comp, doc_id, doc_matches, examined, len(text)) for doc_id, doc_matches in matches.items()]
 
 
 def reason(signal: HashSignal, *, blocked: bool) -> str:
     n = int(signal.x_score_raw)
     if blocked:
-        return f"{signal.x_evidence}의 구간 {signal.x_chunk_span}과 그대로 일치 (일치 창 비율 {signal.score:.0%}, 창 {n}개, 입력 {signal.start}-{signal.end}자)"
+        sampling = "; 표본 조회: 실제 일치는 더 넓을 수 있음" if signal.x_coverage_sampled else ""
+        return f"{signal.x_evidence}의 구간 {signal.x_chunk_span} 내 창과 그대로 일치 (확인된 창 구간 덮임 {signal.match_rate:.1%}{sampling}, 창 {n}개, 입력 탐지 범위 {signal.start}-{signal.end}자)"
     return f"{signal.x_evidence}와 일치 창 없음"
 
 
@@ -118,20 +119,41 @@ def _span(comp: Compact, cluster: list[Match]) -> MatchSpan:
     )
 
 
-def _signal(comp: Compact, doc_id: str, doc_matches: list[Match], examined: int) -> HashSignal:
+def _covered_chars(spans: list[tuple[int, int]]) -> int:
+    """확인된 개별 창의 원문 구간 [start, end) 합집합. 중간의 미일치 구간은 제외한다.
+
+    문서 위치로 만든 덩어리의 bounding box는 수정·삽입 부분까지 포함할 수 있으므로
+    점수 계산에 쓰지 않는다. 동일 입력 창이 문서 여러 곳과 겹쳐도 한 번만 센다.
+    표본 조회한 긴 입력에서는 확인된 창만 집계하므로 전체 일치율의 추정치가 아니다.
+    """
+    merged: list[list[int]] = []
+    for start, end in sorted(spans):
+        if merged and start <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    return sum(end - start for start, end in merged)
+
+
+def _signal(comp: Compact, doc_id: str, doc_matches: list[Match], examined: int, text_len: int) -> HashSignal:
     input_len = comp.offsets[-1] + 1 if comp.offsets else 0
     spans = sorted((_span(comp, c) for c in _clusters(doc_matches, input_len)), key=lambda s: -s.windows)
     best = spans[0]
+    # 실제 조회에서 일치한 입력 창만 합산한다. MAX_SPANS로 잘라낸 표시용 범위와 독립적이다.
+    window_spans = [window_span(comp, i) for i in {i for _, i, _, _ in doc_matches}]
+    match_rate = round(_covered_chars(window_spans) / text_len, 3) if text_len else 0.0
     return HashSignal(
         entity_type=ENTITY_TYPE,
         start=best.in_start,
         end=best.in_end,
         score=round(len({i for _, i, _, _ in doc_matches}) / examined, 3),
         x_score_raw=float(best.windows),
+        match_rate=match_rate,
         x_score_kind="coverage",
         x_detector=NAME,
         x_evidence=doc_id,
         x_chunk_span=f"{best.doc_start}-{best.doc_end}",
         x_examined=examined,
         x_spans=tuple(spans[:MAX_SPANS]),
+        x_coverage_sampled=examined < max(0, len(comp.codes) - WINDOW + 1),
     )

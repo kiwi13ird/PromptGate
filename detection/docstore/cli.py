@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from detection_service.pg_store import _default_connect  # noqa: E402
 from docstore import registry  # noqa: E402
 
-_SUFFIXES = {".pdf", ".docx", ".xlsx"}
+_SUFFIXES = {".pdf", ".docx", ".xlsx", ".hwp", ".hwpx"}
 
 
 def _files(paths: list[str]) -> list[Path]:

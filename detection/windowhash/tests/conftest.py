@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-TESTBED_DIR = Path(__file__).resolve().parents[3] / "test" / "testbed" / "generated"
+TESTBED_DIR = Path(__file__).resolve().parents[3] / "docs" / "testbed-dataset" / "generated"
 
 
 @pytest.fixture(scope="session")

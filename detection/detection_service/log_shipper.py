@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -58,7 +59,7 @@ def rejected_path(log_path: Path) -> Path:
 
 def _atomic_write_json(path: Path, obj: dict[str, Any]) -> None:
     tmp = path.with_name(path.name + ".tmp")
-    # 0600: 상태의 last_error에는 DB 오류 메시지(실패한 행의 프롬프트 일부)가 들어갈 수 있다
+    # Only bounded metadata is stored here; keep status files private too.
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False)
@@ -76,6 +77,8 @@ def _is_data_error(exc: BaseException) -> bool:
 class Offset:
     ino: int | None
     pos: int
+    head_bytes: int = 0
+    head_sha256: str | None = None
 
 
 class Shipper:
@@ -103,12 +106,49 @@ class Shipper:
     def load_offset(self) -> Offset | None:
         try:
             d = json.loads(offset_path(self.log_path).read_text(encoding="utf-8"))
-            return Offset(d.get("ino"), int(d["pos"]))
+            pos = int(d["pos"])
+            if pos < 0:
+                raise ValueError("negative offset")
+            head_bytes = int(d.get("head_bytes", 0))
+            digest = d.get("head_sha256")
+            if not 0 <= head_bytes <= 128 or (digest is not None and (not isinstance(digest,str) or len(digest)!=64)):
+                raise ValueError("invalid identity")
+            return Offset(d.get("ino"), pos, head_bytes, digest)
         except FileNotFoundError:
             return None
+        except (ValueError, KeyError, TypeError):
+            # Recover from the oldest retained file; idempotent inserts make replay safe.
+            self.status["lost_files_total"] += 1
+            log.error("invalid offset metadata; replaying retained files")
+            return Offset(None, 0)
 
     def save_offset(self, off: Offset) -> None:
-        _atomic_write_json(offset_path(self.log_path), {"ino": off.ino, "pos": off.pos})
+        if off.ino is not None and not off.head_sha256:
+            idx = self._find(off.ino)
+            if idx is not None:
+                try:
+                    with self._chain()[idx].open("rb") as f:
+                        if os.fstat(f.fileno()).st_ino == off.ino:
+                            self._bind_head(off, f)
+                except FileNotFoundError:
+                    pass
+        _atomic_write_json(offset_path(self.log_path), {
+            "ino": off.ino, "pos": off.pos, "head_bytes": off.head_bytes, "head_sha256": off.head_sha256,
+        })
+
+    @staticmethod
+    def _bind_head(off: Offset, f) -> None:
+        f.seek(0)
+        head = f.read(128)
+        if head:
+            off.head_bytes = len(head)
+            off.head_sha256 = hashlib.sha256(head).hexdigest()
+
+    def _restart_retained(self, off: Offset) -> bool:
+        self.status["lost_files_total"] += 1
+        log.error("tracked log identity lost or truncated (ino=%s); replaying retained files", off.ino)
+        self.save_offset(Offset(self._oldest_ino(), 0))
+        return True
 
     def init_offset(self, *, start_at_end: bool) -> Offset:
         off = self.load_offset()
@@ -172,11 +212,7 @@ class Shipper:
         if idx is None:
             # 위치가 가리키던 파일이 없다 - 백업 수를 넘겨 회전으로 지워졌거나 누가 지웠다.
             # 남아 있는 가장 오래된 파일 처음부터 다시 간다(잃는 것을 최소로). 이미 보낸 줄이 섞여도 decision_id로 걸러진다.
-            self.status["lost_files_total"] += 1
-            oldest = self._oldest_ino()
-            log.error("offset file (ino=%s) not found; restarting at oldest remaining file", off.ino)
-            self.save_offset(Offset(oldest, 0))
-            return True
+            return self._restart_retained(off)
 
         path = self._chain()[idx]
         try:
@@ -187,10 +223,20 @@ class Shipper:
             st = os.fstat(f.fileno())
             if st.st_ino != off.ino:
                 return True
+            # Linux can reuse an inode after backups expire. A bounded immutable
+            # prefix distinguishes the new file without retaining prompt values.
+            if off.head_sha256:
+                f.seek(0)
+                head = f.read(off.head_bytes)
+                if len(head) != off.head_bytes or hashlib.sha256(head).hexdigest() != off.head_sha256:
+                    return self._restart_retained(off)
+            else:
+                self._bind_head(off, f)  # migrate legacy {ino,pos} offsets
+                if off.head_sha256:
+                    self.save_offset(off)  # also upgrade when there are no pending lines
             pos = off.pos
             if pos > st.st_size:
-                log.error("offset %d beyond file size %d (truncated?); restarting file", pos, st.st_size)
-                pos = 0
+                return self._restart_retained(off)
             f.seek(pos)
             data = f.read(self.max_read_bytes)
             while b"\n" not in data:  # 한 줄이 읽기 한도보다 긴 경우(긴 프롬프트) - 줄 끝이나 파일 끝까지 더 읽는다
@@ -232,7 +278,7 @@ class Shipper:
 
         self._insert(records)
         new_pos = pos + consumed
-        self.save_offset(Offset(off.ino, new_pos))
+        self.save_offset(Offset(off.ino, new_pos, off.head_bytes, off.head_sha256))
         self.status["shipped_total"] += len(records)
         self.status["last_ok_ts"] = time.time()
         self.status["consecutive_failures"] = 0
@@ -248,7 +294,7 @@ class Shipper:
         except Exception as exc:
             if not _is_data_error(exc):
                 raise
-            log.warning("batch data error, isolating bad rows: %s", exc)
+            log.warning("batch data error, isolating bad rows: %s", type(exc).__name__)
         for raw, rec in records:
             try:
                 self.writer.insert_many([rec])
@@ -270,7 +316,7 @@ class Shipper:
             except OSError:
                 pass
         self.status["rejected_total"] += 1
-        log.error("row rejected by database: %s", exc)
+        log.error("row rejected by database: %s (SQLSTATE %s)", type(exc).__name__, getattr(exc, "sqlstate", None))
 
     def write_status(self) -> None:
         try:
@@ -290,11 +336,11 @@ class Shipper:
                 if not progressed:
                     stop.wait(idle_sleep)
             except Exception as exc:
-                self.status["last_error"] = f"{type(exc).__name__}: {exc}"[:500]
+                self.status["last_error"] = type(exc).__name__
                 self.status["last_error_ts"] = time.time()
                 self.status["consecutive_failures"] += 1
                 log.warning("ship failed (%d in a row), retry in %.0fs: %s",
-                            self.status["consecutive_failures"], backoff, exc)
+                            self.status["consecutive_failures"], backoff, type(exc).__name__)
                 self.write_status()
                 stop.wait(backoff)
                 backoff = min(backoff * 2, MAX_BACKOFF)

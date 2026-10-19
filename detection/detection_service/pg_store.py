@@ -10,15 +10,17 @@
 from __future__ import annotations
 
 import logging
+import json
 import re
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
 log = logging.getLogger("detection.pg_store")
 
-INSERT_COLUMNS = ("decision_id", "request_id", "ts", "service", "format", "text_chars", "blocked", "decided_by",
-                  "doc_id", "doc_span", "input_span", "score", "pii_hits", "reason", "hash_status",
-                  "signature_status", "total_ms", "prompt", "prompt_kept")
+INSERT_COLUMNS = ("decision_id", "request_id", "ts", "service", "content_type", "filename", "format",
+                  "text_chars", "blocked", "decided_by", "doc_id", "doc_span", "input_span", "score", "match_rate",
+                  "pii_hits", "reason", "hash_status", "signature_status", "total_ms", "prompt", "prompt_kept", "document_ref",
+                  "masked_text", "findings", "block_order")
 
 _IDENT = re.compile(r"^[a-z_][a-z0-9_]*$")
 
@@ -36,11 +38,17 @@ def to_params(record: dict[str, Any]) -> tuple:
         record["decision_id"],
         record.get("request_id"),
         datetime.fromtimestamp(record["ts"], tz=timezone.utc),
-        record.get("service"), record.get("format"), record.get("text_chars"),
+        record.get("service"), record.get("content_type"), record.get("filename"),
+        record.get("format"), record.get("text_chars"),
         record.get("blocked"), record.get("decided_by"), record.get("doc_id"), record.get("doc_span"),
-        record.get("input_span"), record.get("score"), record.get("pii_hits"), record.get("reason"),
+        record.get("input_span"), record.get("score"), record.get("match_rate"),
+        record.get("pii_hits"), record.get("reason"),
         record.get("hash_status"), record.get("signature_status"), record.get("total_ms"),
         record.get("prompt"), True,
+        json.dumps(record['document_ref']) if record.get('document_ref') is not None else None,
+        record.get("masked_text"),
+        json.dumps(record["findings"], ensure_ascii=False) if record.get("findings") is not None else None,
+        record.get("block_order"),
     )
 
 

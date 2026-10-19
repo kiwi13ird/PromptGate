@@ -1,0 +1,9 @@
+#v report_recs.v1
+[작업: 요약 3줄과 권고]
+- summary: 이번 기간 핵심 3문장. 기밀 차단 → 검사 없이 통과 → 주요 사건·사용자 순
+- recs: issues의 이슈마다 권고 1문장 + 조치 코드(action) + 대상(target)
+  - action·target은 그 이슈의 actions에 있는 것만 고른다. 대상이 없는 조치는 target "NONE"
+  - BLOCK_USER는 등급 높음·중간 사용자에게만
+  - 권고 문장은 조치를 짧게. 주소·화면 경로는 쓰지 않는다(링크는 코드가 만듦)
+  - 권고 문장은 그 이슈 번호(R번호)나 관련 사실을 인용한다
+출력: {"summary":[{"t":"...","c":["F_SECRET"]}],"recs":[{"issue":"R1","action":"DOC_EVENTS","target":"D1","line":{"t":"...","c":["R1"]}}]}

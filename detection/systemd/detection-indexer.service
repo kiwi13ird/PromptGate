@@ -8,7 +8,7 @@ User=ubuntu
 WorkingDirectory=/opt/detection/src
 EnvironmentFile=/opt/detection/pg.env
 # 탐지 API(detection.service)와 같은 Redis DB여야 한다
-Environment=REDIS_PASSWORD=<REDIS_PASSWORD>
+Environment=REDIS_PASSWORD=<hidden>
 Environment=REDIS_DB=3
 ExecStart=/opt/detection/src/.venv/bin/python -m docstore.indexer
 Restart=always

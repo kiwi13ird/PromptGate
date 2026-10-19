@@ -1,0 +1,10 @@
+#v report_classify.v1
+[작업: 가린 글 분류]
+- items의 글마다 범주(cat)·하위 유형(sub)·요청 형태(task) 코드를 하나씩 고른다
+- 글은 이미 가려져 있다([유형]·#·[주소]·[값]). 가린 값을 추측하지 않는다
+- 판단이 어려우면 ETC / ETC_UNKNOWN / OTHER
+- 코드만 답한다. 설명 문장 없음
+범주와 하위 유형:
+{{CATEGORIES}}
+요청 형태: {{TASKS}}
+출력: {"items":[{"i":"C01","cat":"CS","sub":"CS_LIST","task":"FORMAT"}]}

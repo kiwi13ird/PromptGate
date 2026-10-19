@@ -1,0 +1,6 @@
+#v report_doccat.v1
+[작업: 보호 문서 범주]
+- docs의 문서 이름만 보고 범주(cat) 코드를 하나 고른다
+- 판단이 어려우면 ETC
+범주: {{CATEGORY_LIST}}
+출력: {"docs":[{"id":"D1","cat":"PLAN"}]}

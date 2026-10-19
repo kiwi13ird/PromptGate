@@ -14,6 +14,7 @@ class DatabaseRuleRecognizer:
         self,
         *,
         rule_id: str,
+        category: str,
         entity_type: str,
         pattern: str,
         score: float,
@@ -21,6 +22,7 @@ class DatabaseRuleRecognizer:
         requires_context: bool,
     ) -> None:
         self.rule_id = rule_id
+        self.category = category
         self.entity_type = entity_type
         self._pattern = re.compile(pattern, re.IGNORECASE)
         self._score = score
@@ -39,7 +41,14 @@ class DatabaseRuleRecognizer:
         for match in self._pattern.finditer(text):
             if self._requires_context and not self._is_bound_to_context(text, match):
                 continue
-            hits.append(Hit(self.entity_type, match.start(), match.end(), self._score))
+            hits.append(
+                Hit(
+                    self.entity_type,
+                    match.start(),
+                    match.end(),
+                    self._score,
+                )
+            )
         return hits
 
 
@@ -54,7 +63,7 @@ def load_database_recognizers(db_path: str | Path) -> tuple[DatabaseRuleRecogniz
     try:
         rows = connection.execute(
             """
-            SELECT rule_id, entity_type, pattern, score, context_keywords, requires_context
+            SELECT rule_id, category, entity_type, pattern, score, context_keywords, requires_context
             FROM signature_rules
             WHERE enabled = 1
             ORDER BY rule_id
@@ -72,6 +81,7 @@ def load_database_recognizers(db_path: str | Path) -> tuple[DatabaseRuleRecogniz
         recognizers.append(
             DatabaseRuleRecognizer(
                 rule_id=row["rule_id"],
+                category=row["category"],
                 entity_type=row["entity_type"],
                 pattern=row["pattern"],
                 score=float(row["score"]),
